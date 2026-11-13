@@ -13,6 +13,7 @@ const protocolSelect = document.getElementById('protocolSelect');
 
 const btnBluetooth = document.getElementById('btnBluetooth');
 const btnDisconnect = document.getElementById('btnDisconnect');
+const btnMic = document.getElementById('btnMic');
 const btnTest = document.getElementById('btnTest');
 
 // Lista completa de servicios comunes en controladores LED BLE
@@ -50,34 +51,27 @@ btnBluetooth.addEventListener('click', async () => {
             optionalServices: LED_SERVICES
         });
 
-        // Evitar conectar dos veces el mismo dispositivo
         if (connectedLights.some(item => item.device.id === device.id)) {
             log(`⚠️ ${device.name || 'Esta luz'} ya está conectada.`);
             return;
         }
 
-        // Escuchar si la luz se apaga o pierde señal
         device.addEventListener('gattserverdisconnected', handleDeviceDisconnected);
 
         log(`Conectando a: ${device.name || 'LED'}...`);
         const server = await device.gatt.connect();
-        
-        // Pequeña pausa para estabilizar la conexión GATT en Android
         await new Promise(resolve => setTimeout(resolve, 400));
 
         const services = await server.getPrimaryServices();
-        log(`Servicios detectados: ${services.length}`);
-
         let foundChar = null;
+
         for (const service of services) {
-            // Ignorar servicios genéricos del sistema (0x1800 / 0x1801)
             if (service.uuid.startsWith('00001800') || service.uuid.startsWith('00001801')) continue;
 
             const characteristics = await service.getCharacteristics();
             for (const char of characteristics) {
                 if (char.properties.writeWithoutResponse || char.properties.write) {
                     foundChar = char;
-                    log(`Canal listo en UUID: ${char.uuid.slice(4, 8)}`);
                     break;
                 }
             }
@@ -88,7 +82,7 @@ btnBluetooth.addEventListener('click', async () => {
             connectedLights.push({ device, char: foundChar });
             log(`✅ ¡Luz #${connectedLights.length} (${device.name || 'LED'}) conectada!`);
             updateUIButtons();
-            sendColorToAll(0, 255, 0, true); // Enciende en verde al conectar
+            sendColorToAll(0, 255, 0, true);
         } else {
             log('❌ Error: No se encontró canal de escritura.');
             device.gatt.disconnect();
@@ -98,7 +92,7 @@ btnBluetooth.addEventListener('click', async () => {
     }
 });
 
-// BOTÓN DE DESCONEXIÓN MANUAL (Desconecta todas las luces)
+// BOTÓN DE DESCONEXIÓN MANUAL
 btnDisconnect.addEventListener('click', () => {
     if (connectedLights.length === 0) return;
 
@@ -116,11 +110,9 @@ btnDisconnect.addEventListener('click', () => {
     updateUIButtons();
 });
 
-// MANEJADOR DE DESCONEXIÓN (Manual o pérdida de señal)
 function handleDeviceDisconnected(event) {
     const disconnectedDevice = event.target;
     const prevLength = connectedLights.length;
-    
     connectedLights = connectedLights.filter(item => item.device.id !== disconnectedDevice.id);
     
     if (connectedLights.length < prevLength) {
@@ -129,12 +121,12 @@ function handleDeviceDisconnected(event) {
     }
 }
 
-// BOTÓN DE PRUEBA PARA AMBAS LUCES
+// BOTÓN DE PRUEBA DE COLOR
 btnTest.addEventListener('click', () => {
     const r = Math.floor(Math.random() * 255);
     const g = Math.floor(Math.random() * 255);
     const b = Math.floor(Math.random() * 255);
-    log(`Prueba en grupo RGB(${r}, ${g}, ${b})`);
+    log(`Prueba RGB(${r}, ${g}, ${b})`);
     visualizer.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
     sendColorToAll(r, g, b, true);
 });
@@ -143,7 +135,8 @@ async function sendColorToAll(r, g, b, force = false) {
     if (connectedLights.length === 0) return;
 
     const now = Date.now();
-    if (!force && now - lastSendTime < 60) return;
+    // Limitamos envíos a 1 cada 90ms para no saturar el Bluetooth BLE de las tiras
+    if (!force && now - lastSendTime < 90) return;
     lastSendTime = now;
 
     let command;
@@ -166,10 +159,8 @@ async function sendColorToAll(r, g, b, force = false) {
     }
 }
 
-// 2. CONFIGURACIÓN DEL REPRODUCTOR YOUTUBE INTERNO
-function onYouTubeIframeAPIReady() {
-    // Se inicializa solo
-}
+// 2. REPRODUCTOR YOUTUBE INTERNO
+function onYouTubeIframeAPIReady() {}
 
 document.getElementById('loadVideo').addEventListener('click', () => {
     const urlInput = document.getElementById('ytUrl').value;
@@ -189,21 +180,13 @@ document.getElementById('loadVideo').addEventListener('click', () => {
             videoId: videoId,
             playerVars: { 'playsinline': 1 },
             events: {
-                'onReady': (event) => {
-                    event.target.playVideo();
-                    setupAudioAnalyzer();
-                },
-                'onStateChange': (event) => {
-                    if (event.data == YT.PlayerState.PLAYING) {
-                        setupAudioAnalyzer();
-                    }
-                }
+                'onReady': (event) => event.target.playVideo()
             }
         });
     } else {
         player.loadVideoById(videoId);
     }
-    log('Cargando música de YouTube...');
+    log('Video cargado. Pulsa "Activar Ritmo" si aún no está encendido.');
 });
 
 function extractVideoId(url) {
@@ -212,57 +195,73 @@ function extractVideoId(url) {
     return (match && match[2].length === 11) ? match[2] : null;
 }
 
-// 3. CAPTURA DE AUDIO REAL MEDIANTE EL MICRÓFONO DEL TELÉFONO
-async function setupAudioAnalyzer() {
+// 3. BOTÓN DIRECTO PARA ACTIVAR / PAUSAR MICRÓFONO RÍTMICO
+btnMic.addEventListener('click', async () => {
+    if (isSyncing) {
+        isSyncing = false;
+        btnMic.textContent = '🎙️ Activar Ritmo';
+        btnMic.style.background = '#8b5cf6';
+        log('⏸️ Modo rítmico pausado.');
+        return;
+    }
+
     if (sourceConnected) {
         if (audioContext && audioContext.state === 'suspended') {
             await audioContext.resume();
         }
-        if (!isSyncing) {
-            isSyncing = true;
-            analyzeAudio();
-        }
+        isSyncing = true;
+        btnMic.textContent = '⏹️ Pausar Ritmo';
+        btnMic.style.background = '#f59e0b';
+        log('🎙️ Modo rítmico reanudado.');
+        analyzeAudio();
         return;
     }
 
     try {
-        log('Solicitando permiso de micrófono para escuchar el ritmo...');
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-            audio: {
-                echoCancellation: false,
-                noiseSuppression: false,
-                autoGainControl: false
-            } 
-        });
+        log('Iniciando micrófono...');
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioContext.state === 'suspended') {
+            await audioContext.resume();
+        }
+
         const source = audioContext.createMediaStreamSource(stream);
         
+        // Amplificador de señal x2.5 para captar mejor los bajos en móviles
+        const gainNode = audioContext.createGain();
+        gainNode.gain.value = 2.5;
+
         analyser = audioContext.createAnalyser();
         analyser.fftSize = 256;
-        analyser.smoothingTimeConstant = 0.6;
+        analyser.smoothingTimeConstant = 0.5;
         
-        source.connect(analyser);
+        source.connect(gainNode);
+        gainNode.connect(analyser);
         
         dataArray = new Uint8Array(analyser.frequencyBinCount);
         sourceConnected = true;
         isSyncing = true;
         
-        log('🎙️ ¡Micrófono activo! Sube el volumen de la música.');
+        btnMic.textContent = '⏹️ Pausar Ritmo';
+        btnMic.style.background = '#f59e0b';
+        log('🎙️ ¡Micrófono activo! Pon música o habla cerca del teléfono.');
         analyzeAudio();
     } catch (e) {
-        log(`❌ Error de micrófono: ${e.message}. Asegúrate de dar permiso en Chrome.`);
+        log(`❌ Error micrófono: ${e.message}`);
     }
-}
+});
 
-// 4. BUCLE DE RITMO PARA LAS DOS LUCES
+// 4. BUCLE DE RITMO PARA LAS LUCES
 const palette = [
     [255, 0, 80],   // Fucsia
     [0, 220, 255],  // Celeste
     [150, 0, 255],  // Morado
     [0, 255, 100],  // Verde
     [255, 140, 0],  // Naranja
-    [255, 255, 0]   // Amarillo
+    [255, 255, 0],  // Amarillo
+    [255, 0, 0],    // Rojo
+    [0, 100, 255]   // Azul
 ];
 let colorIndex = 0;
 
@@ -272,17 +271,16 @@ function analyzeAudio() {
 
     analyser.getByteFrequencyData(dataArray);
 
-    // Analizamos las frecuencias graves (primeras 6 bandas)
+    // Promedio de frecuencias graves y medias-bajas (primeras 10 bandas)
     let bassSum = 0;
-    for (let i = 0; i < 6; i++) bassSum += dataArray[i];
-    const bassAvg = Math.round(bassSum / 6);
+    for (let i = 0; i < 10; i++) bassSum += dataArray[i];
+    const bassAvg = Math.round(bassSum / 10);
     bassLevelSpan.textContent = bassAvg;
 
     const threshold = parseInt(sensSlider.value, 10);
     const scale = 1 + (bassAvg / 255) * 0.4;
     visualizer.style.transform = `scale(${scale}) rotate(${Date.now() / 10 % 360}deg)`;
 
-    // Si el sonido supera el umbral del deslizador, cambia el color en ambas luces
     if (bassAvg >= threshold) {
         colorIndex = (colorIndex + 1) % palette.length;
         const [r, g, b] = palette[colorIndex];
