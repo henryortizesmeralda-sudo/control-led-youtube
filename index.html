@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LED Music Sync - Estilo App</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            background: #121212;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            gap: 15px;
+        }
+        .controls { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+        button, select {
+            padding: 12px 20px;
+            font-size: 15px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            background: #2563eb;
+            color: white;
+        }
+        select { background: #333; border: 1px solid #555; }
+        button:hover { background: #1d4ed8; }
+        .btn-test { background: #10b981; }
+        
+        /* Estilo disco de vinilo como la app */
+        #visualizer {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #333 30%, #111 31%, #111 70%, #000 71%);
+            border: 6px solid #222;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.05s ease;
+        }
+        .vinyl-center {
+            width: 40px;
+            height: 40px;
+            background: #e11d48;
+            border-radius: 50%;
+            border: 3px solid #fff;
+        }
+
+        .panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: #1e1e1e;
+            padding: 12px 25px;
+            border-radius: 8px;
+            width: 320px;
+            gap: 8px;
+        }
+        input[type="range"] { width: 100%; }
+        #log {
+            font-family: monospace;
+            background: #1e1e1e;
+            padding: 12px;
+            border-radius: 8px;
+            width: 85%;
+            max-width: 500px;
+            height: 100px;
+            overflow-y: auto;
+            font-size: 12px;
+            color: #10b981;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Controlador LED Sync - YouTube</h2>
+    
+    <div id="visualizer">
+        <div class="vinyl-center"></div>
+    </div>
+
+    <div class="controls">
+        <button id="btnBluetooth">1. Conectar Luces</button>
+        <button id="btnAudio">2. Capturar YouTube</button>
+        <button id="btnTest" class="btn-test">Probar Color</button>
+    </div>
+
+    <div class="controls">
+        <label>Protocolo: 
+            <select id="protocolSelect">
+                <option value="elk">Protocolo A (9 bytes - ELK-BLEDOM)</option>
+                <option value="triones">Protocolo B (7 bytes - Triones / HappyLighting)</option>
+            </select>
+        </label>
+    </div>
+
+    <div class="panel">
+        <label>Velocidad de reacción: <span id="speedVal">50</span></label>
+        <input type="range" id="speedSlider" min="10" max="100" value="50">
+    </div>
+
+    <div class="panel">
+        <label>Sensibilidad al ritmo: <span id="sensVal">90</span></label>
+        <input type="range" id="sensitivity" min="20" max="200" value="90">
+        <small style="color: #aaa;">Graves actuales: <span id="bassLevel">0</span></small>
+    </div>
+
+    <div id="log">Listo para conectar...<br></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
