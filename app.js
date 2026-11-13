@@ -15,6 +15,17 @@ const btnBluetooth = document.getElementById('btnBluetooth');
 const btnDisconnect = document.getElementById('btnDisconnect');
 const btnTest = document.getElementById('btnTest');
 
+// Lista completa de servicios comunes en controladores LED BLE
+const LED_SERVICES = [
+    '0000fff0-0000-1000-8000-00805f9b34fb',
+    '0000ffe0-0000-1000-8000-00805f9b34fb',
+    '0000ffe5-0000-1000-8000-00805f9b34fb',
+    '0000ff00-0000-1000-8000-00805f9b34fb',
+    '0000ae00-0000-1000-8000-00805f9b34fb',
+    '00001800-0000-1000-8000-00805f9b34fb',
+    '00001801-0000-1000-8000-00805f9b34fb'
+];
+
 sensSlider.addEventListener('input', () => sensVal.textContent = sensSlider.value);
 
 function log(msg) {
@@ -36,7 +47,7 @@ btnBluetooth.addEventListener('click', async () => {
         log('Buscando dispositivo LED...');
         const device = await navigator.bluetooth.requestDevice({
             acceptAllDevices: true,
-            optionalServices: [0xfff0, 0xffe0, 0xffe5, '0000fff0-0000-1000-8000-00805f9b34fb']
+            optionalServices: LED_SERVICES
         });
 
         // Evitar conectar dos veces el mismo dispositivo
@@ -50,14 +61,23 @@ btnBluetooth.addEventListener('click', async () => {
 
         log(`Conectando a: ${device.name || 'LED'}...`);
         const server = await device.gatt.connect();
+        
+        // Pequeña pausa para estabilizar la conexión GATT en Android
+        await new Promise(resolve => setTimeout(resolve, 400));
+
         const services = await server.getPrimaryServices();
+        log(`Servicios detectados: ${services.length}`);
 
         let foundChar = null;
         for (const service of services) {
+            // Ignorar servicios genéricos del sistema (0x1800 / 0x1801)
+            if (service.uuid.startsWith('00001800') || service.uuid.startsWith('00001801')) continue;
+
             const characteristics = await service.getCharacteristics();
             for (const char of characteristics) {
-                if (char.properties.write || char.properties.writeWithoutResponse) {
+                if (char.properties.writeWithoutResponse || char.properties.write) {
                     foundChar = char;
+                    log(`Canal listo en UUID: ${char.uuid.slice(4, 8)}`);
                     break;
                 }
             }
@@ -66,15 +86,15 @@ btnBluetooth.addEventListener('click', async () => {
 
         if (foundChar) {
             connectedLights.push({ device, char: foundChar });
-            log(`¡Luz #${connectedLights.length} (${device.name || 'LED'}) conectada!`);
+            log(`✅ ¡Luz #${connectedLights.length} (${device.name || 'LED'}) conectada!`);
             updateUIButtons();
-            sendColorToAll(0, 255, 0, true); // Prueba en verde al conectar
+            sendColorToAll(0, 255, 0, true); // Enciende en verde al conectar
         } else {
-            log('Error: Sin canal de escritura.');
+            log('❌ Error: No se encontró canal de escritura.');
             device.gatt.disconnect();
         }
     } catch (error) {
-        log(`Error BT: ${error.message}`);
+        log(`❌ Error BT: ${error.message}`);
     }
 });
 
@@ -83,7 +103,6 @@ btnDisconnect.addEventListener('click', () => {
     if (connectedLights.length === 0) return;
 
     log('Desconectando luces...');
-    // Hacemos una copia del arreglo antes de recorrerlo porque el evento 'gattserverdisconnected' lo irá vaciando
     const lightsToDisconnect = [...connectedLights];
     
     lightsToDisconnect.forEach(({ device }) => {
@@ -175,9 +194,8 @@ document.getElementById('loadVideo').addEventListener('click', () => {
                     setupAudioAnalyzer();
                 },
                 'onStateChange': (event) => {
-                    if (event.data == YT.PlayerState.PLAYING && !isSyncing) {
-                        isSyncing = true;
-                        analyzeAudio();
+                    if (event.data == YT.PlayerState.PLAYING) {
+                        setupAudioAnalyzer();
                     }
                 }
             }
@@ -194,25 +212,46 @@ function extractVideoId(url) {
     return (match && match[2].length === 11) ? match[2] : null;
 }
 
-// 3. CAPTURA DE AUDIO DESDE EL REPRODUCTOR INTERNO
-function setupAudioAnalyzer() {
-    if (sourceConnected) return;
+// 3. CAPTURA DE AUDIO REAL MEDIANTE EL MICRÓFONO DEL TELÉFONO
+async function setupAudioAnalyzer() {
+    if (sourceConnected) {
+        if (audioContext && audioContext.state === 'suspended') {
+            await audioContext.resume();
+        }
+        if (!isSyncing) {
+            isSyncing = true;
+            analyzeAudio();
+        }
+        return;
+    }
+
     try {
+        log('Solicitando permiso de micrófono para escuchar el ritmo...');
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            audio: {
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl: false
+            } 
+        });
+
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const iframeVideo = document.querySelector('#youtube-player');
+        const source = audioContext.createMediaStreamSource(stream);
         
-        const source = audioContext.createMediaElementSource(iframeVideo);
         analyser = audioContext.createAnalyser();
         analyser.fftSize = 256;
+        analyser.smoothingTimeConstant = 0.6;
         
         source.connect(analyser);
-        analyser.connect(audioContext.destination);
         
         dataArray = new Uint8Array(analyser.frequencyBinCount);
         sourceConnected = true;
-        log('¡Audio de YouTube conectado al sistema!');
+        isSyncing = true;
+        
+        log('🎙️ ¡Micrófono activo! Sube el volumen de la música.');
+        analyzeAudio();
     } catch (e) {
-        log('Nota: Reproduce el video para activar el audio.');
+        log(`❌ Error de micrófono: ${e.message}. Asegúrate de dar permiso en Chrome.`);
     }
 }
 
@@ -222,7 +261,8 @@ const palette = [
     [0, 220, 255],  // Celeste
     [150, 0, 255],  // Morado
     [0, 255, 100],  // Verde
-    [255, 140, 0]   // Naranja
+    [255, 140, 0],  // Naranja
+    [255, 255, 0]   // Amarillo
 ];
 let colorIndex = 0;
 
@@ -232,15 +272,17 @@ function analyzeAudio() {
 
     analyser.getByteFrequencyData(dataArray);
 
+    // Analizamos las frecuencias graves (primeras 6 bandas)
     let bassSum = 0;
-    for (let i = 0; i < 8; i++) bassSum += dataArray[i];
-    const bassAvg = Math.round(bassSum / 8);
+    for (let i = 0; i < 6; i++) bassSum += dataArray[i];
+    const bassAvg = Math.round(bassSum / 6);
     bassLevelSpan.textContent = bassAvg;
 
     const threshold = parseInt(sensSlider.value, 10);
     const scale = 1 + (bassAvg / 255) * 0.4;
     visualizer.style.transform = `scale(${scale}) rotate(${Date.now() / 10 % 360}deg)`;
 
+    // Si el sonido supera el umbral del deslizador, cambia el color en ambas luces
     if (bassAvg >= threshold) {
         colorIndex = (colorIndex + 1) % palette.length;
         const [r, g, b] = palette[colorIndex];
