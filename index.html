@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LED Music Sync - Estilo App</title>
+    <title>LED YouTube Sync Mobile</title>
     <style>
         body {
             font-family: system-ui, sans-serif;
@@ -12,108 +12,139 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
             min-height: 100vh;
             margin: 0;
+            padding: 20px;
             gap: 15px;
         }
-        .controls { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
-        button, select {
-            padding: 12px 20px;
-            font-size: 15px;
+        h2 { margin: 5px 0; font-size: 20px; text-align: center; }
+        .controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 400px; }
+        button, select, input[type="text"] {
+            padding: 12px 15px;
+            font-size: 14px;
             border: none;
             border-radius: 8px;
-            cursor: pointer;
             font-weight: bold;
-            background: #2563eb;
-            color: white;
         }
-        select { background: #333; border: 1px solid #555; }
-        button:hover { background: #1d4ed8; }
+        button { background: #2563eb; color: white; cursor: pointer; flex: 1; min-width: 110px; }
+        button:hover:not(:disabled) { background: #1d4ed8; }
+        button:disabled { opacity: 0.4; cursor: not-allowed; }
         .btn-test { background: #10b981; }
+        .btn-test:hover:not(:disabled) { background: #059669; }
+        .btn-disconnect { background: #ef4444; }
+        .btn-disconnect:hover:not(:disabled) { background: #dc2626; }
+        select { background: #333; color: white; border: 1px solid #555; }
         
-        /* Estilo disco de vinilo como la app */
+        /* Vinilo animado */
         #visualizer {
-            width: 150px;
-            height: 150px;
+            width: 120px;
+            height: 120px;
             border-radius: 50%;
             background: radial-gradient(circle, #333 30%, #111 31%, #111 70%, #000 71%);
-            border: 6px solid #222;
-            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            border: 5px solid #222;
             display: flex;
             align-items: center;
             justify-content: center;
             transition: transform 0.05s ease;
+            margin: 5px 0;
         }
-        .vinyl-center {
-            width: 40px;
-            height: 40px;
-            background: #e11d48;
-            border-radius: 50%;
-            border: 3px solid #fff;
-        }
+        .vinyl-center { width: 35px; height: 35px; background: #e11d48; border-radius: 50%; border: 2px solid #fff; }
 
         .panel {
             display: flex;
             flex-direction: column;
             align-items: center;
             background: #1e1e1e;
-            padding: 12px 25px;
+            padding: 12px 15px;
             border-radius: 8px;
-            width: 320px;
+            width: 100%;
+            max-width: 350px;
             gap: 8px;
         }
         input[type="range"] { width: 100%; }
-        #log {
-            font-family: monospace;
+        
+        /* Buscador de YouTube */
+        .youtube-box {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+            max-width: 350px;
             background: #1e1e1e;
             padding: 12px;
             border-radius: 8px;
-            width: 85%;
-            max-width: 500px;
-            height: 100px;
+        }
+        .youtube-box input {
+            background: #2a2a2a;
+            color: white;
+            border: 1px solid #444;
+            flex: 2;
+        }
+        .search-row { display: flex; gap: 8px; }
+        .search-row button { background: #dc2626; min-width: auto; flex: 1; }
+        
+        #player-container { width: 100%; height: 160px; border-radius: 6px; overflow: hidden; background: #000; display: none; }
+        
+        #log {
+            font-family: monospace;
+            background: #1e1e1e;
+            padding: 10px;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 350px;
+            height: 80px;
             overflow-y: auto;
-            font-size: 12px;
+            font-size: 11px;
             color: #10b981;
         }
     </style>
 </head>
 <body>
 
-    <h2>Controlador LED Sync - YouTube</h2>
+    <h2>Control LED Rítmico</h2>
     
     <div id="visualizer">
         <div class="vinyl-center"></div>
     </div>
 
     <div class="controls">
-        <button id="btnBluetooth">1. Conectar Luces</button>
-        <button id="btnAudio">2. Capturar YouTube</button>
-        <button id="btnTest" class="btn-test">Probar Color</button>
+        <button id="btnBluetooth">🔗 Conectar Luz</button>
+        <button id="btnDisconnect" class="btn-disconnect" disabled>❌ Desconectar</button>
+        <button id="btnTest" class="btn-test" disabled>🧪 Probar Color</button>
     </div>
 
     <div class="controls">
         <label>Protocolo: 
             <select id="protocolSelect">
-                <option value="elk">Protocolo A (9 bytes - ELK-BLEDOM)</option>
-                <option value="triones">Protocolo B (7 bytes - Triones / HappyLighting)</option>
+                <option value="elk">ELK-BLEDOM (9 bytes)</option>
+                <option value="triones">Triones / HappyLighting (7 bytes)</option>
             </select>
         </label>
     </div>
 
-    <div class="panel">
-        <label>Velocidad de reacción: <span id="speedVal">50</span></label>
-        <input type="range" id="speedSlider" min="10" max="100" value="50">
+    <!-- Buscador y Reproductor de YouTube Integrado -->
+    <div class="youtube-box">
+        <label style="font-size: 13px; font-weight: bold;">🎵 Reproductor de YouTube:</label>
+        <div class="search-row">
+            <input type="text" id="ytUrl" placeholder="Pega el Link de YouTube aquí...">
+            <button id="loadVideo">Cargar</button>
+        </div>
+        <div id="player-container">
+            <div id="youtube-player"></div>
+        </div>
     </div>
 
     <div class="panel">
-        <label>Sensibilidad al ritmo: <span id="sensVal">90</span></label>
+        <label style="font-size: 12px;">Sensibilidad al ritmo: <span id="sensVal">90</span></label>
         <input type="range" id="sensitivity" min="20" max="200" value="90">
-        <small style="color: #aaa;">Graves actuales: <span id="bassLevel">0</span></small>
+        <small style="color: #aaa; font-size: 11px;">Graves: <span id="bassLevel">0</span></small>
     </div>
 
-    <div id="log">Listo para conectar...<br></div>
+    <div id="log">Conecta tus luces para empezar...<br></div>
 
+    <!-- API de YouTube IFrame -->
+    <script src="https://www.youtube.com/iframe_api"></script>
     <script src="app.js"></script>
 </body>
 </html>
