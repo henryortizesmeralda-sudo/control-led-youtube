@@ -8,19 +8,613 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>LED LAMP Pro</title>
-    <link rel="stylesheet" href="style.css">
+    <style>
+        :root {
+            --bg: #0b0c10;
+            --surface: #14161d;
+            --surface-2: #1c1f29;
+            --border: #272b38;
+            --text: #f4f4f6;
+            --muted: #9ca3af;
+            --primary: #3b82f6;
+            --accent: #8b5cf6;
+            --success: #10b981;
+            --danger: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            overflow-x: hidden;
+        }
+
+        .ambient-glow {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at 50% 25%, rgba(0, 255, 136, 0.14), transparent 65%);
+            pointer-events: none;
+            z-index: 0;
+            transition: background 0.2s ease;
+        }
+
+        .app-shell {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 520px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding-bottom: 78px;
+        }
+
+        /* BARRA SUPERIOR */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 16px;
+            background: rgba(20, 22, 29, 0.94);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 20;
+        }
+
+        .device-pill {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 7px 12px;
+            border-radius: 999px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .dot-status {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: var(--danger);
+        }
+
+        .dot-status.connected {
+            background: var(--success);
+            box-shadow: 0 0 8px var(--success);
+        }
+
+        .app-title {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .app-title h1 {
+            font-size: 1.05rem;
+            font-weight: 800;
+            letter-spacing: 0.8px;
+        }
+
+        .platform-tag {
+            font-size: 0.65rem;
+            font-weight: 700;
+            background: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+            padding: 2px 6px;
+            border-radius: 6px;
+        }
+
+        .power-circle {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: var(--surface-2);
+            color: #fff;
+            font-size: 1.1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .power-circle.is-on:not(:disabled) {
+            background: var(--success);
+            border-color: var(--success);
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+        }
+
+        .power-circle:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .warning-banner {
+            margin: 12px 16px 0;
+            padding: 10px 12px;
+            background: rgba(239, 68, 68, 0.16);
+            border: 1px solid rgba(239, 68, 68, 0.45);
+            border-radius: 10px;
+            font-size: 0.82rem;
+            color: #fca5a5;
+        }
+
+        /* LISTA DE DISPOSITIVOS */
+        .devices-drawer {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 14px 16px;
+        }
+
+        .drawer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 0.88rem;
+            font-weight: 700;
+        }
+
+        .device-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .device-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            padding: 9px 12px;
+            border-radius: 10px;
+            font-size: 0.85rem;
+        }
+
+        .empty-msg {
+            font-size: 0.82rem;
+            color: var(--muted);
+            text-align: center;
+            padding: 10px 0;
+        }
+
+        .drawer-footer {
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        /* PESTAÑAS */
+        .tab-content {
+            padding: 14px 16px;
+            flex: 1;
+        }
+
+        .tab-pane {
+            display: none;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .tab-pane.active {
+            display: flex;
+        }
+
+        .wheel-card, .control-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 16px;
+        }
+
+        /* RUEDA RGB */
+        .wheel-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .wheel-wrapper {
+            position: relative;
+            width: 240px;
+            height: 240px;
+            touch-action: none;
+            user-select: none;
+        }
+
+        #colorWheel {
+            width: 240px;
+            height: 240px;
+            border-radius: 50%;
+            cursor: crosshair;
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+            display: block;
+        }
+
+        .wheel-cursor {
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: 3px solid #ffffff;
+            box-shadow: 0 0 6px rgba(0, 0, 0, 0.85);
+            transform: translate(-50%, -50%);
+            top: 50%;
+            left: 50%;
+            pointer-events: none;
+        }
+
+        .wheel-center-preview {
+            text-align: center;
+        }
+
+        #rgbReadout {
+            font-family: monospace;
+            font-size: 0.82rem;
+            color: var(--muted);
+            background: var(--surface-2);
+            padding: 4px 10px;
+            border-radius: 8px;
+        }
+
+        .quick-actions-row {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .btn-chip {
+            flex: 1;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--surface-2);
+            color: var(--text);
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-primary-outline {
+            border-color: rgba(59, 130, 246, 0.55);
+            color: #93c5fd;
+        }
+
+        .btn-danger-outline {
+            border-color: rgba(239, 68, 68, 0.45);
+            color: #fca5a5;
+        }
+
+        /* SLIDERS Y COLORES */
+        .slider-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        .card-subtitle {
+            font-size: 0.82rem;
+            color: var(--muted);
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .swatches-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 8px;
+        }
+
+        .diy-grid {
+            grid-template-columns: repeat(6, 1fr);
+        }
+
+        .swatch {
+            aspect-ratio: 1;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.22);
+            cursor: pointer;
+            transition: transform 0.12s ease;
+        }
+
+        .swatch:active {
+            transform: scale(0.9);
+        }
+
+        .diy-slot {
+            aspect-ratio: 1;
+            border-radius: 10px;
+            border: 1px dashed #4b5563;
+            background: var(--surface-2);
+            color: var(--muted);
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* MODOS */
+        .modes-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .mode-item {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px 12px;
+            color: var(--text);
+            font-size: 0.88rem;
+            font-weight: 600;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        .mode-item.active {
+            border-color: var(--primary);
+            background: rgba(59, 130, 246, 0.16);
+            box-shadow: 0 0 14px rgba(59, 130, 246, 0.25);
+        }
+
+        .mode-icon {
+            font-size: 1.4rem;
+        }
+
+        /* MÚSICA */
+        .music-hero {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 12px;
+        }
+
+        .music-disc {
+            width: 92px;
+            height: 92px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2rem;
+            box-shadow: 0 0 24px rgba(139, 92, 246, 0.4);
+            transition: transform 0.08s ease;
+        }
+
+        .helper-text {
+            font-size: 0.84rem;
+            color: var(--muted);
+            line-height: 1.4;
+        }
+
+        .music-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .btn-full {
+            width: 100%;
+            padding: 12px;
+            border-radius: 12px;
+            border: none;
+            color: #fff;
+            font-size: 0.92rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-primary { background: var(--primary); }
+        .btn-accent { background: var(--accent); }
+        .btn-danger { background: var(--danger); }
+        .btn-secondary { background: var(--surface-2); border: 1px solid var(--border); }
+
+        .btn-small {
+            padding: 6px 11px;
+            border-radius: 8px;
+            border: none;
+            color: #fff;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-mini {
+            background: var(--surface-2);
+            color: var(--muted);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 3px 8px;
+            font-size: 0.74rem;
+            cursor: pointer;
+        }
+
+        .badge {
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 999px;
+        }
+
+        .badge-off { background: var(--surface-2); color: var(--muted); }
+        .badge-on { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+
+        .meter-row {
+            font-size: 0.82rem;
+            color: var(--muted);
+            margin: 10px 0 6px;
+        }
+
+        .meter-track {
+            width: 100%;
+            height: 8px;
+            background: var(--surface-2);
+            border-radius: 999px;
+            overflow: hidden;
+        }
+
+        .meter-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899);
+        }
+
+        .yt-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .yt-row input {
+            flex: 1;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 9px 11px;
+            color: #fff;
+            font-size: 0.86rem;
+        }
+
+        .btn-yt {
+            background: #dc2626;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            padding: 0 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* TIEMPO Y CONSOLA */
+        .timer-card {
+            text-align: center;
+        }
+
+        .timer-display {
+            font-family: monospace;
+            font-size: 2rem;
+            font-weight: 800;
+            margin: 12px 0;
+            color: #60a5fa;
+        }
+
+        .timer-presets {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .protocol-select {
+            width: 100%;
+            background: var(--surface-2);
+            color: #fff;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px;
+            font-size: 0.88rem;
+        }
+
+        .log-box {
+            margin-top: 8px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px;
+            height: 130px;
+            overflow-y: auto;
+            font-family: Consolas, monospace;
+            font-size: 0.78rem;
+            color: #4ade80;
+            line-height: 1.45;
+        }
+
+        /* BARRA INFERIOR */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 520px;
+            height: 66px;
+            background: rgba(20, 22, 29, 0.96);
+            backdrop-filter: blur(12px);
+            border-top: 1px solid var(--border);
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            z-index: 30;
+        }
+
+        .nav-btn {
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .nav-btn.active {
+            color: var(--primary);
+        }
+
+        .nav-icon {
+            font-size: 1.25rem;
+        }
+    </style>
 </head>
 <body>
 
     <div class="ambient-glow" id="ambientGlow"></div>
 
     <div class="app-shell">
-        <!-- BARRA SUPERIOR (ESTILO LED LAMP) -->
+        <!-- BARRA SUPERIOR -->
         <header class="top-bar">
             <button id="btnDevicesModal" class="device-pill" title="Ver dispositivos conectados">
                 <span class="dot-status" id="connDot"></span>
                 <span id="connCountText">0 Conectadas</span>
-                <span class="chevron">▾</span>
+                <span>▾</span>
             </button>
 
             <div class="app-title">
@@ -34,10 +628,10 @@
         </header>
 
         <div id="securityWarning" class="warning-banner" style="display: none;">
-            ⚠️ Web Bluetooth requiere abrir la página en <strong>HTTPS</strong> (GitHub Pages) o <strong>localhost</strong>.
+            ⚠️ Web Bluetooth requiere abrir la página en <strong>HTTPS</strong> o <strong>localhost</strong>.
         </div>
 
-        <!-- PANEL DESPLEGABLE DE DISPOSITIVOS -->
+        <!-- LISTA DESPLEGABLE DE DISPOSITIVOS -->
         <div id="devicesDrawer" class="devices-drawer" style="display: none;">
             <div class="drawer-header">
                 <span>Mis Dispositivos Bluetooth</span>
@@ -51,18 +645,19 @@
             </div>
         </div>
 
-        <!-- CONTENIDO PRINCIPAL POR PESTAÑAS -->
+        <!-- CONTENIDO PRINCIPAL -->
         <main class="tab-content">
 
-            <!-- PESTAÑA 1: COLOR (RUEDA RGB + BRILLO + DIY) -->
+            <!-- PESTAÑA 1: COLOR -->
             <section id="tab-color" class="tab-pane active">
                 <div class="wheel-card">
                     <div class="wheel-wrapper" id="wheelWrapper">
-                        <canvas id="colorWheel" width="250" height="250"></canvas>
+                        <canvas id="colorWheel" width="240" height="240"></canvas>
                         <div id="wheelCursor" class="wheel-cursor"></div>
-                        <div id="colorCenterPreview" class="wheel-center-preview">
-                            <span id="rgbReadout">RGB(0, 255, 136)</span>
-                        </div>
+                    </div>
+
+                    <div class="wheel-center-preview">
+                        <span id="rgbReadout">RGB(0, 255, 136)</span>
                     </div>
 
                     <div class="quick-actions-row">
@@ -71,7 +666,7 @@
                     </div>
                 </div>
 
-                <!-- Control de Brillo -->
+                <!-- Brillo -->
                 <div class="control-card">
                     <div class="slider-row">
                         <span>☀️ Brillo</span>
@@ -80,28 +675,28 @@
                     <input type="range" id="brightnessSlider" min="5" max="100" value="100">
                 </div>
 
-                <!-- Colores Preestablecidos -->
+                <!-- Colores Rápidos y DIY -->
                 <div class="control-card">
                     <div class="card-subtitle">Colores Rápidos</div>
                     <div class="swatches-grid" id="presetSwatches">
-                        <button class="swatch" data-rgb="255,0,0" style="background:#ff0000;" title="Rojo"></button>
-                        <button class="swatch" data-rgb="0,255,0" style="background:#00ff00;" title="Verde"></button>
-                        <button class="swatch" data-rgb="0,80,255" style="background:#0050ff;" title="Azul"></button>
-                        <button class="swatch" data-rgb="255,230,0" style="background:#ffe600;" title="Amarillo"></button>
-                        <button class="swatch" data-rgb="0,240,255" style="background:#00f0ff;" title="Cian"></button>
-                        <button class="swatch" data-rgb="210,0,255" style="background:#d200ff;" title="Magenta"></button>
-                        <button class="swatch" data-rgb="255,95,0" style="background:#ff5f00;" title="Naranja"></button>
-                        <button class="swatch" data-rgb="255,255,255" style="background:#ffffff;" title="Blanco"></button>
+                        <button class="swatch" data-rgb="255,0,0" style="background:#ff0000;"></button>
+                        <button class="swatch" data-rgb="0,255,0" style="background:#00ff00;"></button>
+                        <button class="swatch" data-rgb="0,80,255" style="background:#0050ff;"></button>
+                        <button class="swatch" data-rgb="255,230,0" style="background:#ffe600;"></button>
+                        <button class="swatch" data-rgb="0,240,255" style="background:#00f0ff;"></button>
+                        <button class="swatch" data-rgb="210,0,255" style="background:#d200ff;"></button>
+                        <button class="swatch" data-rgb="255,95,0" style="background:#ff5f00;"></button>
+                        <button class="swatch" data-rgb="255,255,255" style="background:#ffffff;"></button>
                     </div>
 
                     <div class="card-subtitle" style="margin-top: 14px;">
-                        <span>Favoritos DIY (Toca + para guardar el actual)</span>
+                        Favoritos DIY (Toca + para guardar el actual)
                     </div>
                     <div class="swatches-grid diy-grid" id="diySwatches"></div>
                 </div>
             </section>
 
-            <!-- PESTAÑA 2: MODOS / ESCENAS -->
+            <!-- PESTAÑA 2: MODOS -->
             <section id="tab-modes" class="tab-pane">
                 <div class="control-card">
                     <div class="slider-row">
@@ -151,13 +746,13 @@
                 </button>
             </section>
 
-            <!-- PESTAÑA 3: MÚSICA (RITMO) -->
+            <!-- PESTAÑA 3: MÚSICA -->
             <section id="tab-music" class="tab-pane">
                 <div class="control-card music-hero">
                     <div id="musicDisc" class="music-disc">
                         <span>🎵</span>
                     </div>
-                    <div class="status-row">
+                    <div>
                         <span id="audioStatusBadge" class="badge badge-off">MICRÓFONO / AUDIO INACTIVO</span>
                     </div>
                     <p id="musicHelper" class="helper-text">
@@ -204,7 +799,7 @@
                 </div>
             </section>
 
-            <!-- PESTAÑA 4: TEMPORIZADOR Y AJUSTES -->
+            <!-- PESTAÑA 4: TIEMPO Y REGISTRO -->
             <section id="tab-timer" class="tab-pane">
                 <div class="control-card timer-card">
                     <div class="card-subtitle">⏱️ Temporizador de Apagado Automático</div>
@@ -237,7 +832,7 @@
 
         </main>
 
-        <!-- BARRA DE NAVEGACIÓN INFERIOR (ESTILO LED LAMP) -->
+        <!-- BARRA INFERIOR -->
         <nav class="bottom-nav">
             <button class="nav-btn active" data-target="tab-color">
                 <span class="nav-icon">🎨</span>
@@ -259,6 +854,335 @@
     </div>
 
     <script src="https://www.youtube.com/iframe_api"></script>
-    <script src="app.js"></script>
-</body>
-</html>
+    <script>
+        const isAndroid = /Android/i.test(navigator.userAgent) ||
+                          (navigator.userAgentData && navigator.userAgentData.platform === 'Android') ||
+                          (/Linux/i.test(navigator.platform) && navigator.maxTouchPoints > 1);
+        const isMobile = isAndroid || /iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const supportsDisplayAudio = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) && !isMobile;
+
+        // Manifiesto PWA para abrir como app nativa en Android
+        (function injectPwaManifest() {
+            const manifest = {
+                name: "LED LAMP Pro",
+                short_name: "LED LAMP",
+                start_url: ".",
+                display: "standalone",
+                background_color: "#0b0c10",
+                theme_color: "#0b0c10"
+            };
+            const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+            const link = document.createElement('link');
+            link.rel = 'manifest';
+            link.href = URL.createObjectURL(blob);
+            document.head.appendChild(link);
+        })();
+
+        let connectedLights = [];
+        let isLightsOn = true;
+        let isManualDisconnect = false;
+        let currentRGB = { r: 0, g: 255, b: 136 };
+        let currentBrightness = 100;
+        let activeModeInterval = null;
+        let activeModeName = null;
+        let timerInterval = null;
+        let timerRemainingSec = 0;
+
+        let audioContext = null;
+        let analyser = null;
+        let dataArray = null;
+        let currentStream = null;
+        let wakeLock = null;
+        let isSyncing = false;
+        let lastSendTime = 0;
+        let player = null;
+
+        const ALL_LED_SERVICES = [
+            '0000ffe0-0000-1000-8000-00805f9b34fb',
+            '0000ffe5-0000-1000-8000-00805f9b34fb',
+            '0000fff0-0000-1000-8000-00805f9b34fb',
+            '0000ffd0-0000-1000-8000-00805f9b34fb',
+            '0000ffd5-0000-1000-8000-00805f9b34fb',
+            '0000ff00-0000-1000-8000-00805f9b34fb',
+            '0000ff12-0000-1000-8000-00805f9b34fb',
+            '0000ae00-0000-1000-8000-00805f9b34fb',
+            '00001800-0000-1000-8000-00805f9b34fb',
+            '00001801-0000-1000-8000-00805f9b34fb',
+            '0000180a-0000-1000-8000-00805f9b34fb'
+        ];
+
+        const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        const logDiv = document.getElementById('log');
+        const ambientGlow = document.getElementById('ambientGlow');
+        const protocolSelect = document.getElementById('protocolSelect');
+        const btnMasterPower = document.getElementById('btnMasterPower');
+        const btnDevicesModal = document.getElementById('btnDevicesModal');
+        const devicesDrawer = document.getElementById('devicesDrawer');
+        const deviceListDiv = document.getElementById('deviceList');
+        const connDot = document.getElementById('connDot');
+        const connCountText = document.getElementById('connCountText');
+
+        function log(msg) {
+            logDiv.innerHTML += `> ${msg}<br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        // Navegación por pestañas
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById(btn.dataset.target).classList.add('active');
+            });
+        });
+
+        btnDevicesModal.addEventListener('click', () => {
+            devicesDrawer.style.display = devicesDrawer.style.display === 'none' ? 'block' : 'none';
+        });
+
+        // Configuración por plataforma
+        function initPlatform() {
+            if (!window.isSecureContext) {
+                document.getElementById('securityWarning').style.display = 'block';
+            }
+            const platformTag = document.getElementById('platformTag');
+            if (isAndroid) {
+                platformTag.textContent = 'ANDROID';
+                document.getElementById('btnSystemAudio').style.display = 'none';
+                document.getElementById('musicHelper').textContent = 'Activa el micrófono y mantén Ubicación (GPS) y Bluetooth encendidos.';
+            } else {
+                platformTag.textContent = 'PC';
+            }
+        }
+
+        async function requestScreenWakeLock() {
+            try {
+                if ('wakeLock' in navigator && !wakeLock) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    wakeLock.addEventListener('release', () => { wakeLock = null; });
+                }
+            } catch (e) {}
+        }
+
+        function releaseScreenWakeLock() {
+            if (wakeLock) {
+                wakeLock.release().catch(() => {});
+                wakeLock = null;
+            }
+        }
+
+        // Cola GATT serializada
+        function enqueueWrite(light, bytes, isPriority = false) {
+            if (!light || !light.device.gatt.connected) return Promise.resolve();
+            if (!isPriority && light.queue.length > 1) return Promise.resolve();
+
+            return new Promise((resolve) => {
+                light.queue.push({ bytes, resolve });
+                processLightQueue(light);
+            });
+        }
+
+        async function processLightQueue(light) {
+            if (light.processing || light.queue.length === 0) return;
+            light.processing = true;
+
+            while (light.queue.length > 0) {
+                const { bytes, resolve } = light.queue.shift();
+                try {
+                    if (light.device.gatt.connected) {
+                        if (light.char.properties.writeWithoutResponse) {
+                            await light.char.writeValueWithoutResponse(bytes);
+                        } else {
+                            await light.char.writeValue(bytes);
+                        }
+                    }
+                } catch (err) {
+                    try {
+                        if (light.device.gatt.connected) await light.char.writeValue(bytes);
+                    } catch (e) {}
+                }
+                await sleep(isAndroid ? 45 : 35);
+                resolve();
+            }
+
+            light.processing = false;
+        }
+
+        async function sendToAllLights(bytes, isPriority = false) {
+            await Promise.all(connectedLights.map(light => enqueueWrite(light, bytes, isPriority)));
+        }
+
+        // Auto-conexión al abrir
+        async function autoConnectSavedLights() {
+            if (!navigator.bluetooth || typeof navigator.bluetooth.getDevices !== 'function') return;
+            try {
+                const saved = await navigator.bluetooth.getDevices();
+                if (!saved || saved.length === 0) return;
+
+                log(`🔄 Reconectando ${saved.length} tira(s) guardada(s)...`);
+                isManualDisconnect = false;
+
+                for (const device of saved) {
+                    if (!connectedLights.some(item => item.device.id === device.id)) {
+                        await connectSingleDevice(device, true);
+                        await sleep(250);
+                    }
+                }
+            } catch (e) {}
+        }
+
+        function waitForAdvertisement(device, timeoutMs = 6000) {
+            return new Promise((resolve, reject) => {
+                if (typeof device.watchAdvertisements !== 'function') {
+                    reject(new Error('No soportado'));
+                    return;
+                }
+                const abort = new AbortController();
+                const timer = setTimeout(() => {
+                    abort.abort();
+                    reject(new Error('Timeout anuncio BLE'));
+                }, timeoutMs);
+
+                const onAdv = () => {
+                    clearTimeout(timer);
+                    device.removeEventListener('advertisementreceived', onAdv);
+                    abort.abort();
+                    resolve();
+                };
+
+                device.addEventListener('advertisementreceived', onAdv);
+                device.watchAdvertisements({ signal: abort.signal }).catch(err => {
+                    clearTimeout(timer);
+                    device.removeEventListener('advertisementreceived', onAdv);
+                    reject(err);
+                });
+            });
+        }
+
+        async function connectGattWithRetry(device, maxRetries = 3, isAuto = false) {
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                    return await device.gatt.connect();
+                } catch (err) {
+                    if (isAuto && attempt === 1 && typeof device.watchAdvertisements === 'function') {
+                        try {
+                            await waitForAdvertisement(device, 6000);
+                            return await device.gatt.connect();
+                        } catch (e) {}
+                    }
+                    if (attempt === maxRetries) throw err;
+                    await sleep(isAndroid ? 600 : 400);
+                }
+            }
+        }
+
+        async function connectSingleDevice(device, isAuto = false) {
+            try {
+                if (connectedLights.some(item => item.device.id === device.id)) return;
+
+                device.removeEventListener('gattserverdisconnected', handleDeviceDisconnected);
+                device.addEventListener('gattserverdisconnected', handleDeviceDisconnected);
+
+                if (!isAuto) log(`Enlazando con ${device.name || 'LED'}...`);
+
+                let server = await connectGattWithRetry(device, isAuto ? 2 : 3, isAuto);
+                await sleep(isAndroid ? 250 : 150);
+
+                let services = [];
+                try {
+                    services = await server.getPrimaryServices();
+                } catch (err) {
+                    await sleep(350);
+                    server = await connectGattWithRetry(device, 2, isAuto);
+                    services = await server.getPrimaryServices();
+                }
+
+                let foundChar = null;
+                let foundSvc = '';
+
+                const preferred = ['ffe0', 'ffe5', 'fff0', 'ffd5', 'ffd0'];
+                services.sort((a, b) => {
+                    const ia = preferred.indexOf(a.uuid.slice(4, 8));
+                    const ib = preferred.indexOf(b.uuid.slice(4, 8));
+                    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+                });
+
+                for (const service of services) {
+                    const shortSvc = service.uuid.slice(4, 8);
+                    if (['1800', '1801', '180a'].includes(shortSvc)) continue;
+
+                    try {
+                        const chars = await service.getCharacteristics();
+                        const exact = chars.find(c =>
+                            ['ffe1', 'ffe9', 'fff3', 'ffd9'].includes(c.uuid.slice(4, 8)) &&
+                            (c.properties.writeWithoutResponse || c.properties.write)
+                        );
+                        if (exact) {
+                            foundChar = exact;
+                            foundSvc = shortSvc;
+                            break;
+                        }
+                        for (const c of chars) {
+                            if (c.properties.writeWithoutResponse || c.properties.write) {
+                                foundChar = c;
+                                foundSvc = shortSvc;
+                                break;
+                            }
+                        }
+                    } catch (e) {}
+                    if (foundChar) break;
+                }
+
+                if (foundChar) {
+                    if (foundSvc === 'ffe0') protocolSelect.value = 'ledble';
+                    else if (foundSvc === 'fff0') protocolSelect.value = 'elk';
+                    else if (['ffe5', 'ffd5', 'ffd0'].includes(foundSvc)) protocolSelect.value = 'triones';
+
+                    const lightObj = { device, char: foundChar, queue: [], processing: false };
+                    connectedLights.push(lightObj);
+                    isLightsOn = true;
+
+                    log(`🎉 Conectada: ${device.name || 'LED'} [${foundSvc}→${foundChar.uuid.slice(4, 8)}]`);
+                    refreshDevicesUI();
+                    requestScreenWakeLock();
+
+                    if (protocolSelect.value === 'ledble') {
+                        await enqueueWrite(lightObj, new Uint8Array([0x2a, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]), true);
+                    }
+
+                    await sendPowerCommand(true);
+                    await applyCurrentColor(true);
+                } else if (!isAuto) {
+                    log(`❌ No se encontró canal de escritura en ${device.name || 'LED'}.`);
+                    if (device.gatt.connected) device.gatt.disconnect();
+                }
+            } catch (error) {
+                if (!isAuto && error.name !== 'NotFoundError') {
+                    log(`❌ Error: ${error.message}`);
+                }
+            }
+        }
+
+        async function promptConnectDevice() {
+            try {
+                if (!navigator.bluetooth) {
+                    log('❌ Usa Google Chrome en HTTPS o localhost.');
+                    return;
+                }
+                isManualDisconnect = false;
+                const device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: ALL_LED_SERVICES
+                });
+                await connectSingleDevice(device, false);
+            } catch (e) {
+                if (e.name !== 'NotFoundError') log(`❌ ${e.message}`);
+            }
+        }
+
+        document.getElementById('btnAddDevice').addEventListener('click', promptConnectDevice);
+        document.getElementById('btnQuickConnect').addEventListener('click', promptConnectDevice);
+
+        document.getElementById('btnDisconnectAll').addEventListener('click', () => {
