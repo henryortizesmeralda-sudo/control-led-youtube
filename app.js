@@ -1,45 +1,46 @@
 // ============================================================================
-// DETECCIÓN DE PLATAFORMA Y SEGURIDAD (PC vs ANDROID)
+// DETECCIÓN DE SISTEMA OPERATIVO (PC vs ANDROID) + MANIFEST PWA DINÁMICO
 // ============================================================================
 const isAndroid = /Android/i.test(navigator.userAgent);
 const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 const supportsDisplayAudio = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) && !isMobile;
 
-let connectedLights = []; // { device, char, protocol, queue, processing }
+// Inyecta manifiesto PWA para que "Añadir a pantalla de inicio" en Android abra sin barra de navegador
+(function injectPwaManifest() {
+    const manifest = {
+        name: "LED LAMP Pro",
+        short_name: "LED LAMP",
+        start_url: ".",
+        display: "standalone",
+        background_color: "#0b0c10",
+        theme_color: "#0b0c10"
+    };
+    const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+    const link = document.createElement('link');
+    link.rel = 'manifest';
+    link.href = URL.createObjectURL(blob);
+    document.head.appendChild(link);
+})();
+
+let connectedLights = []; // { device, char, queue, processing }
+let isLightsOn = true;
+let isManualDisconnect = false;
+let currentRGB = { r: 0, g: 255, b: 136 };
+let currentBrightness = 100;
+let activeModeInterval = null;
+let activeModeName = null;
+let timerInterval = null;
+let timerRemainingSec = 0;
+
 let audioContext = null;
 let analyser = null;
 let dataArray = null;
 let currentStream = null;
 let wakeLock = null;
 let isSyncing = false;
-let isLightsOn = true;
 let lastSendTime = 0;
 let player = null;
 
-// Referencias DOM
-const logDiv = document.getElementById('log');
-const visualizer = document.getElementById('visualizer');
-const ambientGlow = document.getElementById('ambientGlow');
-const sensSlider = document.getElementById('sensitivity');
-const sensVal = document.getElementById('sensVal');
-const bassLevelSpan = document.getElementById('bassLevel');
-const bassMeterFill = document.getElementById('bassMeterFill');
-const statusBadge = document.getElementById('statusBadge');
-const protocolSelect = document.getElementById('protocolSelect');
-const platformBadge = document.getElementById('platformBadge');
-const securityWarning = document.getElementById('securityWarning');
-const audioHelperText = document.getElementById('audioHelperText');
-
-const btnBluetooth = document.getElementById('btnBluetooth');
-const btnDisconnect = document.getElementById('btnDisconnect');
-const btnPower = document.getElementById('btnPower');
-const btnSystemAudio = document.getElementById('btnSystemAudio');
-const btnMic = document.getElementById('btnMic');
-const btnStopAudio = document.getElementById('btnStopAudio');
-const btnTest = document.getElementById('btnTest');
-const btnClearLog = document.getElementById('btnClearLog');
-
-// Todos los UUIDs estándar de controladores LED BLE
 const ALL_LED_SERVICES = [
     '0000ffe0-0000-1000-8000-00805f9b34fb', // LEDBLE-00 / LED LAMP
     '0000ffe5-0000-1000-8000-00805f9b34fb', // Triones / LEDBLE clásico
@@ -49,83 +50,64 @@ const ALL_LED_SERVICES = [
     '0000ff00-0000-1000-8000-00805f9b34fb',
     '0000ff12-0000-1000-8000-00805f9b34fb',
     '0000ae00-0000-1000-8000-00805f9b34fb',
-    '0000ae30-0000-1000-8000-00805f9b34fb',
-    '0000af00-0000-1000-8000-00805f9b34fb',
-    '00001000-0000-1000-8000-00805f9b34fb',
     '00001800-0000-1000-8000-00805f9b34fb',
     '00001801-0000-1000-8000-00805f9b34fb',
-    '0000180a-0000-1000-8000-00805f9b34fb',
-    '0000fee0-0000-1000-8000-00805f9b34fb',
-    '0000fee9-0000-1000-8000-00805f9b34fb'
+    '0000180a-0000-1000-8000-00805f9b34fb'
 ];
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Inicialización según el Sistema Operativo
-(function initEnvironment() {
-    if (!window.isSecureContext) {
-        securityWarning.style.display = 'block';
-    }
-
-    if (isAndroid) {
-        platformBadge.textContent = 'MODO ANDROID';
-        btnSystemAudio.style.display = 'none';
-        btnMic.className = 'btn btn-accent';
-        btnMic.innerHTML = '<span>🎙️</span> Activar Micrófono (Android)';
-        audioHelperText.textContent = 'En Android, usa el micrófono (optimizado sin filtro de ruido) y activa Ubicación (GPS) para escanear Bluetooth.';
-        log('📱 Entorno Android detectado. Asegúrate de tener Ubicación (GPS) y Bluetooth activos.');
-    } else if (isMobile) {
-        platformBadge.textContent = 'MODO MÓVIL';
-        btnSystemAudio.style.display = 'none';
-    } else {
-        platformBadge.textContent = 'MODO ESCRITORIO (PC)';
-        log('💻 Entorno PC detectado. Audio de pestaña y micrófono disponibles.');
-    }
-})();
-
-sensSlider.addEventListener('input', () => {
-    sensVal.textContent = sensSlider.value;
-});
-
-btnClearLog.addEventListener('click', () => {
-    logDiv.innerHTML = '';
-});
+// ============================================================================
+// REFERENCIAS DOM Y NAVEGACIÓN POR PESTAÑAS
+// ============================================================================
+const logDiv = document.getElementById('log');
+const ambientGlow = document.getElementById('ambientGlow');
+const protocolSelect = document.getElementById('protocolSelect');
+const btnMasterPower = document.getElementById('btnMasterPower');
+const btnDevicesModal = document.getElementById('btnDevicesModal');
+const devicesDrawer = document.getElementById('devicesDrawer');
+const deviceListDiv = document.getElementById('deviceList');
+const connDot = document.getElementById('connDot');
+const connCountText = document.getElementById('connCountText');
 
 function log(msg) {
     logDiv.innerHTML += `> ${msg}<br>`;
     logDiv.scrollTop = logDiv.scrollHeight;
 }
 
-function updateUIButtons() {
-    const count = connectedLights.length;
-    btnDisconnect.disabled = count === 0;
-    btnTest.disabled = count === 0;
-    btnPower.disabled = count === 0;
-    btnBluetooth.innerHTML = count > 0
-        ? `<span>🔗</span> Conectar Otra (${count})`
-        : `<span>🔗</span> Conectar Luz`;
+// Cambio de pestañas inferiores
+document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.target).classList.add('active');
+    });
+});
 
-    updatePowerButtonUI();
-}
+// Abrir / cerrar lista de dispositivos arriba
+btnDevicesModal.addEventListener('click', () => {
+    devicesDrawer.style.display = devicesDrawer.style.display === 'none' ? 'block' : 'none';
+});
 
-function updatePowerButtonUI() {
-    if (connectedLights.length === 0) {
-        btnPower.innerHTML = `<span>⏻</span> Encender / Apagar`;
-        btnPower.className = 'btn btn-secondary';
-        return;
+// Configuración inicial por SO
+(function initPlatform() {
+    if (!window.isSecureContext) {
+        document.getElementById('securityWarning').style.display = 'block';
     }
 
-    if (isLightsOn) {
-        btnPower.innerHTML = `<span>⏻</span> Encender / Apagar (ON)`;
-        btnPower.className = 'btn btn-secondary';
+    const platformTag = document.getElementById('platformTag');
+    if (isAndroid) {
+        platformTag.textContent = 'ANDROID';
+        document.getElementById('btnSystemAudio').style.display = 'none';
+        document.getElementById('musicHelper').textContent = 'Activa el micrófono (optimizado sin filtro de ruido) y mantén Ubicación (GPS) y Bluetooth encendidos.';
     } else {
-        btnPower.innerHTML = `<span>⏻</span> Encender / Apagar (OFF)`;
-        btnPower.className = 'btn btn-danger';
+        platformTag.textContent = 'PC';
     }
-}
+})();
 
 // ============================================================================
-// WAKE LOCK (EVITA QUE ANDROID APAGUE LA PANTALLA Y CORTE EL BLUETOOTH)
+// WAKE LOCK (EVITA SUSPENSIÓN EN ANDROID)
 // ============================================================================
 async function requestScreenWakeLock() {
     try {
@@ -144,15 +126,11 @@ function releaseScreenWakeLock() {
 }
 
 // ============================================================================
-// COLA DE ESCRITURA GATT SERIALIZADA (EVITA GATT ERROR 133 EN ANDROID Y WINDOWS)
+// COLA GATT SERIALIZADA (EVITA ERROR 133 EN ANDROID Y CORTES EN WINDOWS)
 // ============================================================================
 function enqueueWrite(light, bytes, isPriority = false) {
     if (!light || !light.device.gatt.connected) return Promise.resolve();
-
-    // Si es un paquete de ritmo y ya hay paquetes pendientes, descartamos el viejo para evitar retrasos
-    if (!isPriority && light.queue.length > 1) {
-        return Promise.resolve();
-    }
+    if (!isPriority && light.queue.length > 1) return Promise.resolve();
 
     return new Promise((resolve) => {
         light.queue.push({ bytes, resolve });
@@ -176,12 +154,9 @@ async function processLightQueue(light) {
             }
         } catch (err) {
             try {
-                if (light.device.gatt.connected) {
-                    await light.char.writeValue(bytes);
-                }
+                if (light.device.gatt.connected) await light.char.writeValue(bytes);
             } catch (e) {}
         }
-        // Pausa mínima de estabilidad para Android y chips FFE0
         await sleep(isAndroid ? 45 : 35);
         resolve();
     }
@@ -190,99 +165,132 @@ async function processLightQueue(light) {
 }
 
 async function sendToAllLights(bytes, isPriority = false) {
-    const tasks = connectedLights.map(light => enqueueWrite(light, bytes, isPriority));
-    await Promise.all(tasks);
+    await Promise.all(connectedLights.map(light => enqueueWrite(light, bytes, isPriority)));
 }
 
 // ============================================================================
-// CONEXIÓN BLUETOOTH MULTI-PLATAFORMA (WINDOWS + ANDROID)
+// AUTO-CONEXIÓN Y GESTIÓN DE DISPOSITIVOS BLUETOOTH
 // ============================================================================
-async function connectGattWithRetry(device, maxRetries = 3) {
+window.addEventListener('DOMContentLoaded', () => {
+    drawColorWheel();
+    renderDiySwatches();
+    setTimeout(autoConnectSavedLights, 400);
+});
+
+async function autoConnectSavedLights() {
+    if (!navigator.bluetooth || typeof navigator.bluetooth.getDevices !== 'function') return;
+
+    try {
+        const saved = await navigator.bluetooth.getDevices();
+        if (!saved || saved.length === 0) return;
+
+        log(`🔄 Reconectando ${saved.length} tira(s) guardada(s)...`);
+        isManualDisconnect = false;
+
+        for (const device of saved) {
+            if (!connectedLights.some(item => item.device.id === device.id)) {
+                await connectSingleDevice(device, true);
+                await sleep(250);
+            }
+        }
+    } catch (e) {}
+}
+
+function waitForAdvertisement(device, timeoutMs = 6000) {
+    return new Promise((resolve, reject) => {
+        if (typeof device.watchAdvertisements !== 'function') {
+            reject(new Error('No soportado'));
+            return;
+        }
+        const abort = new AbortController();
+        const timer = setTimeout(() => {
+            abort.abort();
+            reject(new Error('Timeout anuncio BLE'));
+        }, timeoutMs);
+
+        const onAdv = () => {
+            clearTimeout(timer);
+            device.removeEventListener('advertisementreceived', onAdv);
+            abort.abort();
+            resolve();
+        };
+
+        device.addEventListener('advertisementreceived', onAdv);
+        device.watchAdvertisements({ signal: abort.signal }).catch(err => {
+            clearTimeout(timer);
+            device.removeEventListener('advertisementreceived', onAdv);
+            reject(err);
+        });
+    });
+}
+
+async function connectGattWithRetry(device, maxRetries = 3, isAuto = false) {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-            if (attempt > 1) {
-                log(`Reintentando enlace (${attempt}/${maxRetries})...`);
-            }
             return await device.gatt.connect();
         } catch (err) {
+            if (isAuto && attempt === 1 && typeof device.watchAdvertisements === 'function') {
+                try {
+                    await waitForAdvertisement(device, 6000);
+                    return await device.gatt.connect();
+                } catch (e) {}
+            }
             if (attempt === maxRetries) throw err;
             await sleep(isAndroid ? 600 : 400);
         }
     }
 }
 
-btnBluetooth.addEventListener('click', async () => {
+async function connectSingleDevice(device, isAuto = false) {
     try {
-        if (!navigator.bluetooth) {
-            log('❌ Web Bluetooth no disponible. Usa Chrome y abre el sitio en HTTPS o localhost.');
-            return;
-        }
+        if (connectedLights.some(item => item.device.id === device.id)) return;
 
-        log('Buscando dispositivos Bluetooth...');
-        const device = await navigator.bluetooth.requestDevice({
-            acceptAllDevices: true,
-            optionalServices: ALL_LED_SERVICES
-        });
-
-        if (connectedLights.some(item => item.device.id === device.id)) {
-            log(`⚠️ ${device.name || 'Esta luz'} ya está conectada.`);
-            return;
-        }
-
+        device.removeEventListener('gattserverdisconnected', handleDeviceDisconnected);
         device.addEventListener('gattserverdisconnected', handleDeviceDisconnected);
-        log(`Enlazando con ${device.name || 'LED'}...`);
 
-        let server = await connectGattWithRetry(device, 3);
-        await sleep(isAndroid ? 250 : 150); // Estabilización GATT en Android/Windows
+        if (!isAuto) log(`Enlazando con ${device.name || 'LED'}...`);
+
+        let server = await connectGattWithRetry(device, isAuto ? 2 : 3, isAuto);
+        await sleep(isAndroid ? 250 : 150);
 
         let services = [];
         try {
             services = await server.getPrimaryServices();
         } catch (err) {
-            log('Reestabilizando servicios GATT...');
             await sleep(350);
-            server = await connectGattWithRetry(device, 2);
+            server = await connectGattWithRetry(device, 2, isAuto);
             services = await server.getPrimaryServices();
         }
 
         let foundChar = null;
-        let foundServiceUuid = '';
-        let detectedList = [];
+        let foundSvc = '';
 
-        // Prioridad de servicios según controladores comerciales
-        const preferredOrder = ['ffe0', 'ffe5', 'fff0', 'ffd5', 'ffd0'];
+        const preferred = ['ffe0', 'ffe5', 'fff0', 'ffd5', 'ffd0'];
         services.sort((a, b) => {
-            const sa = a.uuid.slice(4, 8);
-            const sb = b.uuid.slice(4, 8);
-            const ia = preferredOrder.indexOf(sa);
-            const ib = preferredOrder.indexOf(sb);
+            const ia = preferred.indexOf(a.uuid.slice(4, 8));
+            const ib = preferred.indexOf(b.uuid.slice(4, 8));
             return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
         });
 
         for (const service of services) {
             const shortSvc = service.uuid.slice(4, 8);
-            detectedList.push(shortSvc);
-
-            if (shortSvc === '1800' || shortSvc === '1801' || shortSvc === '180a') continue;
+            if (['1800', '1801', '180a'].includes(shortSvc)) continue;
 
             try {
-                const characteristics = await service.getCharacteristics();
-                const exactChar = characteristics.find(c => {
-                    const sc = c.uuid.slice(4, 8);
-                    return ['ffe1', 'ffe9', 'fff3', 'ffd9'].includes(sc) &&
-                           (c.properties.writeWithoutResponse || c.properties.write);
-                });
-
-                if (exactChar) {
-                    foundChar = exactChar;
-                    foundServiceUuid = shortSvc;
+                const chars = await service.getCharacteristics();
+                const exact = chars.find(c =>
+                    ['ffe1', 'ffe9', 'fff3', 'ffd9'].includes(c.uuid.slice(4, 8)) &&
+                    (c.properties.writeWithoutResponse || c.properties.write)
+                );
+                if (exact) {
+                    foundChar = exact;
+                    foundSvc = shortSvc;
                     break;
                 }
-
-                for (const char of characteristics) {
-                    if (char.properties.writeWithoutResponse || char.properties.write) {
-                        foundChar = char;
-                        foundServiceUuid = shortSvc;
+                for (const c of chars) {
+                    if (c.properties.writeWithoutResponse || c.properties.write) {
+                        foundChar = c;
+                        foundSvc = shortSvc;
                         break;
                     }
                 }
@@ -291,73 +299,136 @@ btnBluetooth.addEventListener('click', async () => {
         }
 
         if (foundChar) {
-            // Auto-selección precisa según el canal físico detectado en el chip
-            if (foundServiceUuid === 'ffe0') {
-                protocolSelect.value = 'ledble';
-            } else if (foundServiceUuid === 'fff0') {
-                protocolSelect.value = 'elk';
-            } else if (foundServiceUuid === 'ffe5' || foundServiceUuid === 'ffd5' || foundServiceUuid === 'ffd0') {
-                protocolSelect.value = 'triones';
-            }
+            if (foundSvc === 'ffe0') protocolSelect.value = 'ledble';
+            else if (foundSvc === 'fff0') protocolSelect.value = 'elk';
+            else if (['ffe5', 'ffd5', 'ffd0'].includes(foundSvc)) protocolSelect.value = 'triones';
 
-            const lightObj = {
-                device,
-                char: foundChar,
-                queue: [],
-                processing: false
-            };
-
+            const lightObj = { device, char: foundChar, queue: [], processing: false };
             connectedLights.push(lightObj);
             isLightsOn = true;
 
-            log(`✅ Canal [${foundServiceUuid} -> ${foundChar.uuid.slice(4, 8)}] | Protocolo: ${protocolSelect.value.toUpperCase()}`);
-            log(`🎉 ¡Luz #${connectedLights.length} (${device.name || 'LED'}) conectada!`);
-            updateUIButtons();
+            log(`🎉 Conectada: ${device.name || 'LED'} [${foundSvc}→${foundChar.uuid.slice(4, 8)}]`);
+            refreshDevicesUI();
             requestScreenWakeLock();
 
-            // Handshake inicial para chips FFE0 (LEDBLE-00)
+            // Handshake obligatorio en chips FFE0 (LEDBLE-00 / LED LAMP)
             if (protocolSelect.value === 'ledble') {
                 await enqueueWrite(lightObj, new Uint8Array([0x2a, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]), true);
             }
 
             await sendPowerCommand(true);
-            await sendColorToAll(0, 255, 100, true);
-            updateVisualGlow(0, 255, 100);
-        } else {
-            log(`❌ Sin canal de escritura. Servicios: [${detectedList.join(', ')}]`);
+            await applyCurrentColor(true);
+        } else if (!isAuto) {
+            log(`❌ No se encontró canal de escritura en ${device.name || 'LED'}.`);
             if (device.gatt.connected) device.gatt.disconnect();
         }
     } catch (error) {
-        if (error.name !== 'NotFoundError') {
+        if (!isAuto && error.name !== 'NotFoundError') {
             log(`❌ Error: ${error.message}`);
-            if (isAndroid) {
-                log('💡 Tip Android: Activa Ubicación (GPS) y asegúrate de que no esté conectada a otra app.');
-            } else {
-                log('💡 Tip Windows: Si aparece "Emparejado" en Configuración de Windows, quítalo primero.');
-            }
         }
     }
+}
+
+async function promptConnectDevice() {
+    try {
+        if (!navigator.bluetooth) {
+            log('❌ Usa Google Chrome en HTTPS o localhost.');
+            return;
+        }
+        isManualDisconnect = false;
+        const device = await navigator.bluetooth.requestDevice({
+            acceptAllDevices: true,
+            optionalServices: ALL_LED_SERVICES
+        });
+        await connectSingleDevice(device, false);
+    } catch (e) {
+        if (e.name !== 'NotFoundError') log(`❌ ${e.message}`);
+    }
+}
+
+document.getElementById('btnAddDevice').addEventListener('click', promptConnectDevice);
+document.getElementById('btnQuickConnect').addEventListener('click', promptConnectDevice);
+
+document.getElementById('btnDisconnectAll').addEventListener('click', () => {
+    isManualDisconnect = true;
+    stopActiveMode();
+    connectedLights.forEach(({ device }) => {
+        if (device && device.gatt.connected) device.gatt.disconnect();
+    });
+    connectedLights = [];
+    refreshDevicesUI();
+    releaseScreenWakeLock();
+    log('🔌 Todas las luces desconectadas.');
 });
 
-// ============================================================================
-// ENCENDER / APAGAR Y CONTROL DE COLOR
-// ============================================================================
-btnPower.addEventListener('click', async () => {
-    if (connectedLights.length === 0) return;
+function handleDeviceDisconnected(event) {
+    const dev = event.target;
+    const prev = connectedLights.length;
+    connectedLights = connectedLights.filter(item => item.device.id !== dev.id);
 
+    if (connectedLights.length < prev) {
+        refreshDevicesUI();
+        log(`🔌 Desconectada: ${dev.name || 'LED'}`);
+
+        if (!isManualDisconnect) {
+            setTimeout(() => {
+                if (!isManualDisconnect) connectSingleDevice(dev, true);
+            }, 2000);
+        }
+    }
+}
+
+function refreshDevicesUI() {
+    const count = connectedLights.length;
+    connCountText.textContent = `${count} Conectada${count === 1 ? '' : 's'}`;
+    connDot.className = count > 0 ? 'dot-status connected' : 'dot-status';
+    btnMasterPower.disabled = count === 0;
+    document.getElementById('btnDisconnectAll').disabled = count === 0;
+    document.getElementById('btnQuickConnect').textContent = count > 0
+        ? `🔗 Conectar Otra (${count})`
+        : `🔗 Conectar Luz`;
+
+    updatePowerButtonUI();
+
+    if (count === 0) {
+        deviceListDiv.innerHTML = `<p class="empty-msg">No hay tiras LED conectadas. Pulsa "+ Conectar Luz".</p>`;
+        return;
+    }
+
+    deviceListDiv.innerHTML = connectedLights.map(({ device }, idx) => `
+        <div class="device-item">
+            <span>💡 <strong>${device.name || 'Tira LED #' + (idx + 1)}</strong></span>
+            <span style="color:#34d399; font-size:0.78rem;">● En línea</span>
+        </div>
+    `).join('');
+}
+
+// ============================================================================
+// ENCENDIDO / APAGADO PRINCIPAL
+// ============================================================================
+btnMasterPower.addEventListener('click', async () => {
+    if (connectedLights.length === 0) return;
     isLightsOn = !isLightsOn;
     updatePowerButtonUI();
     await sendPowerCommand(isLightsOn);
 
     if (isLightsOn) {
         log('💡 Luces ENCENDIDAS.');
-        updateVisualGlow(0, 255, 100);
-        await sendColorToAll(0, 255, 100, true);
+        await applyCurrentColor(true);
     } else {
+        stopActiveMode();
         log('🌑 Luces APAGADAS.');
-        resetVisualGlow();
+        ambientGlow.style.background = 'none';
     }
 });
+
+function updatePowerButtonUI() {
+    if (isLightsOn && connectedLights.length > 0) {
+        btnMasterPower.classList.add('is-on');
+    } else {
+        btnMasterPower.classList.remove('is-on');
+    }
+}
 
 async function sendPowerCommand(turnOn) {
     if (connectedLights.length === 0) return;
@@ -385,275 +456,365 @@ async function sendPowerCommand(turnOn) {
     }
 }
 
-btnTest.addEventListener('click', async () => {
-    if (!isLightsOn) {
-        isLightsOn = true;
-        updatePowerButtonUI();
-        await sendPowerCommand(true);
+// ============================================================================
+// RUEDA DE COLOR RGB TÁCTIL + BRILLO + FAVORITOS DIY
+// ============================================================================
+const wheelCanvas = document.getElementById('colorWheel');
+const wheelCtx = wheelCanvas.getContext('2d');
+const wheelCursor = document.getElementById('wheelCursor');
+const rgbReadout = document.getElementById('rgbReadout');
+const brightnessSlider = document.getElementById('brightnessSlider');
+const brightnessVal = document.getElementById('brightnessVal');
+
+function drawColorWheel() {
+    const size = wheelCanvas.width;
+    const radius = size / 2;
+    const img = wheelCtx.createImageData(size, size);
+    const data = img.data;
+
+    for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+            const dx = x - radius;
+            const dy = y - radius;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const idx = (y * size + x) * 4;
+
+            if (dist <= radius) {
+                const angle = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+                const sat = dist / radius;
+                const { r, g, b } = hsvToRgb(angle, sat, 1);
+                data[idx] = r;
+                data[idx + 1] = g;
+                data[idx + 2] = b;
+                data[idx + 3] = 255;
+            } else {
+                data[idx + 3] = 0;
+            }
+        }
+    }
+    wheelCtx.putImageData(img, 0, 0);
+}
+
+function hsvToRgb(h, s, v) {
+    const c = v * s;
+    const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+    const m = v - c;
+    let r = 0, g = 0, b = 0;
+
+    if (h < 60) { r = c; g = x; }
+    else if (h < 120) { r = x; g = c; }
+    else if (h < 180) { g = c; b = x; }
+    else if (h < 240) { g = x; b = c; }
+    else if (h < 300) { r = x; b = c; }
+    else { r = c; b = x; }
+
+    return {
+        r: Math.round((r + m) * 255),
+        g: Math.round((g + m) * 255),
+        b: Math.round((b + m) * 255)
+    };
+}
+
+let isDraggingWheel = false;
+
+function handleWheelPointer(e) {
+    const rect = wheelCanvas.getBoundingClientRect();
+    const radius = rect.width / 2;
+    let dx = e.clientX - (rect.left + radius);
+    let dy = e.clientY - (rect.top + radius);
+    let dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist > radius) {
+        dx = (dx / dist) * radius;
+        dy = (dy / dist) * radius;
+        dist = radius;
     }
 
-    const r = Math.floor(Math.random() * 255);
-    const g = Math.floor(Math.random() * 255);
-    const b = Math.floor(Math.random() * 255);
-    log(`Prueba RGB(${r}, ${g}, ${b})`);
-    updateVisualGlow(r, g, b);
-    await sendColorToAll(r, g, b, true);
+    wheelCursor.style.left = `${radius + dx}px`;
+    wheelCursor.style.top = `${radius + dy}px`;
+
+    const angle = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+    const sat = dist / radius;
+    currentRGB = hsvToRgb(angle, sat, 1);
+
+    stopActiveMode();
+    applyCurrentColor(false);
+}
+
+wheelCanvas.addEventListener('pointerdown', (e) => {
+    isDraggingWheel = true;
+    wheelCanvas.setPointerCapture(e.pointerId);
+    handleWheelPointer(e);
 });
 
-async function sendColorToAll(r, g, b, force = false) {
+wheelCanvas.addEventListener('pointermove', (e) => {
+    if (isDraggingWheel) handleWheelPointer(e);
+});
+
+wheelCanvas.addEventListener('pointerup', () => {
+    isDraggingWheel = false;
+    applyCurrentColor(true);
+});
+
+brightnessSlider.addEventListener('input', () => {
+    currentBrightness = parseInt(brightnessSlider.value, 10);
+    brightnessVal.textContent = `${currentBrightness}%`;
+    applyCurrentColor(false);
+});
+
+document.getElementById('btnPureWhite').addEventListener('click', () => {
+    stopActiveMode();
+    currentRGB = { r: 255, g: 255, b: 255 };
+    wheelCursor.style.left = '50%';
+    wheelCursor.style.top = '50%';
+    applyCurrentColor(true);
+});
+
+document.querySelectorAll('#presetSwatches .swatch').forEach(btn => {
+    btn.addEventListener('click', () => {
+        stopActiveMode();
+        const [r, g, b] = btn.dataset.rgb.split(',').map(Number);
+        currentRGB = { r, g, b };
+        applyCurrentColor(true);
+    });
+});
+
+// Favoritos DIY guardados en localStorage
+function renderDiySwatches() {
+    const container = document.getElementById('diySwatches');
+    const savedDiy = JSON.parse(localStorage.getItem('ledlamp_diy') || '[null,null,null,null,null,null]');
+
+    container.innerHTML = savedDiy.map((rgb, idx) => {
+        if (rgb) {
+            return `<button class="swatch" data-diy="${idx}" style="background:rgb(${rgb.r},${rgb.g},${rgb.b});" title="Clic: aplicar | Mantén: sobrescribir"></button>`;
+        }
+        return `<button class="diy-slot" data-diy="${idx}" title="Guardar color actual">+</button>`;
+    }).join('');
+
+    container.querySelectorAll('button').forEach(btn => {
+        const idx = parseInt(btn.dataset.diy, 10);
+        btn.addEventListener('click', () => {
+            const list = JSON.parse(localStorage.getItem('ledlamp_diy') || '[null,null,null,null,null,null]');
+            if (!list[idx]) {
+                list[idx] = { ...currentRGB };
+                localStorage.setItem('ledlamp_diy', JSON.stringify(list));
+                renderDiySwatches();
+                log(`⭐ Color guardado en Favorito #${idx + 1}.`);
+            } else {
+                stopActiveMode();
+                currentRGB = { ...list[idx] };
+                applyCurrentColor(true);
+            }
+        });
+
+        btn.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            const list = JSON.parse(localStorage.getItem('ledlamp_diy') || '[null,null,null,null,null,null]');
+            list[idx] = { ...currentRGB };
+            localStorage.setItem('ledlamp_diy', JSON.stringify(list));
+            renderDiySwatches();
+            log(`⭐ Favorito #${idx + 1} actualizado.`);
+        });
+    });
+}
+
+async function applyCurrentColor(force = false) {
+    const { r, g, b } = currentRGB;
+    rgbReadout.textContent = `RGB(${r}, ${g}, ${b})`;
+    ambientGlow.style.background = `radial-gradient(circle at 50% 25%, rgba(${r}, ${g}, ${b}, 0.24), transparent 65%)`;
+
+    const factor = currentBrightness / 100;
+    const sr = Math.round(r * factor);
+    const sg = Math.round(g * factor);
+    const sb = Math.round(b * factor);
+
+    await sendRawColor(sr, sg, sb, force);
+}
+
+async function sendRawColor(r, g, b, force = false) {
     if (connectedLights.length === 0 || !isLightsOn) return;
 
     const now = Date.now();
-    const minInterval = isAndroid ? 80 : 65;
-    if (!force && now - lastSendTime < minInterval) return;
+    const minGap = isAndroid ? 75 : 60;
+    if (!force && now - lastSendTime < minGap) return;
     lastSendTime = now;
 
     const proto = protocolSelect.value;
-    let command;
+    let cmd;
 
     if (proto === 'ledble') {
-        command = new Uint8Array([0x7e, 0xff, 0x05, 0x03, r, g, b, 0xff, 0xef]);
+        cmd = new Uint8Array([0x7e, 0xff, 0x05, 0x03, r, g, b, 0xff, 0xef]);
     } else if (proto === 'elk') {
-        command = new Uint8Array([0x7e, 0x00, 0x05, 0x03, r, g, b, 0x00, 0xef]);
+        cmd = new Uint8Array([0x7e, 0x00, 0x05, 0x03, r, g, b, 0x00, 0xef]);
     } else {
-        command = new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]);
+        cmd = new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]);
     }
 
-    await sendToAllLights(command, force);
+    await sendToAllLights(cmd, force);
 }
 
-// Desconexión manual y automática
-btnDisconnect.addEventListener('click', () => {
-    if (connectedLights.length === 0) return;
+// ============================================================================
+// PESTAÑA 2: MODOS DINÁMICOS Y VELOCIDAD
+// ============================================================================
+const speedSlider = document.getElementById('speedSlider');
+const speedVal = document.getElementById('speedVal');
+const btnStopMode = document.getElementById('btnStopMode');
 
-    log('Desconectando luces...');
-    const list = [...connectedLights];
-    list.forEach(({ device }) => {
-        if (device && device.gatt.connected) {
-            device.gatt.disconnect();
-        }
-    });
-
-    connectedLights = [];
-    isLightsOn = true;
-    resetVisualGlow();
-    releaseScreenWakeLock();
-    updateUIButtons();
+speedSlider.addEventListener('input', () => {
+    speedVal.textContent = `${speedSlider.value}%`;
+    if (activeModeName) startDynamicMode(activeModeName);
 });
 
-function handleDeviceDisconnected(event) {
-    const dev = event.target;
-    const prev = connectedLights.length;
-    connectedLights = connectedLights.filter(item => item.device.id !== dev.id);
+document.querySelectorAll('.mode-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+        startDynamicMode(btn.dataset.mode);
+    });
+});
 
-    if (connectedLights.length < prev) {
-        log(`🔌 Desconectada: ${dev.name || 'Luz LED'}`);
-        if (connectedLights.length === 0) {
-            isLightsOn = true;
-            resetVisualGlow();
-            releaseScreenWakeLock();
-        }
-        updateUIButtons();
+btnStopMode.addEventListener('click', () => {
+    stopActiveMode();
+    applyCurrentColor(true);
+});
+
+function stopActiveMode() {
+    if (activeModeInterval) {
+        clearInterval(activeModeInterval);
+        activeModeInterval = null;
     }
+    activeModeName = null;
+    btnStopMode.style.display = 'none';
+    document.querySelectorAll('.mode-item').forEach(b => b.classList.remove('active'));
+}
+
+function startDynamicMode(mode) {
+    stopActiveMode();
+    stopCurrentAudio();
+
+    activeModeName = mode;
+    btnStopMode.style.display = 'block';
+    document.querySelector(`.mode-item[data-mode="${mode}"]`)?.classList.add('active');
+
+    const speedPct = parseInt(speedSlider.value, 10);
+    const intervalMs = Math.max(85, Math.round(950 - (speedPct * 8.5)));
+    let step = 0;
+
+    const colors3 = [[255, 0, 0], [0, 255, 0], [0, 80, 255]];
+    const colors7 = [[255, 0, 0], [255, 120, 0], [255, 240, 0], [0, 255, 0], [0, 220, 255], [0, 60, 255], [180, 0, 255]];
+
+    activeModeInterval = setInterval(() => {
+        if (!isLightsOn || connectedLights.length === 0) return;
+        const factor = currentBrightness / 100;
+        let r = 0, g = 0, b = 0;
+
+        if (mode === 'jump3') {
+            [r, g, b] = colors3[step % colors3.length];
+        } else if (mode === 'jump7') {
+            [r, g, b] = colors7[step % colors7.length];
+        } else if (mode === 'fade7') {
+            const hue = (step * 12) % 360;
+            ({ r, g, b } = hsvToRgb(hue, 1, 1));
+        } else if (mode === 'strobe') {
+            const on = step % 2 === 0;
+            r = g = b = on ? 255 : 0;
+        } else if (mode === 'breath_cyan') {
+            const wave = (Math.sin(step * 0.35) + 1) / 2;
+            r = 0; g = Math.round(230 * wave); b = Math.round(255 * wave);
+        } else if (mode === 'breath_purple') {
+            const wave = (Math.sin(step * 0.35) + 1) / 2;
+            r = Math.round(180 * wave); g = 0; b = Math.round(255 * wave);
+        } else if (mode === 'fire') {
+            r = 255; g = Math.floor(Math.random() * 90); b = 0;
+        } else if (mode === 'ocean') {
+            r = 0; g = 80 + Math.floor(Math.random() * 140); b = 255;
+        }
+
+        ambientGlow.style.background = `radial-gradient(circle at 50% 25%, rgba(${r}, ${g}, ${b}, 0.24), transparent 65%)`;
+        sendRawColor(Math.round(r * factor), Math.round(g * factor), Math.round(b * factor), false);
+        step++;
+    }, intervalMs);
 }
 
 // ============================================================================
-// CAPTURA DE AUDIO (PC TAB AUDIO + MICRÓFONO OPTIMIZADO PARA ANDROID)
+// PESTAÑA 3: MÚSICA (AUDIO DE PESTAÑA PC + MICRÓFONO ANDROID/PC)
 // ============================================================================
-btnSystemAudio.addEventListener('click', async () => {
-    if (!supportsDisplayAudio) {
-        log('⚠️ La captura de pestaña solo está disponible en PC. Usa el micrófono.');
-        return;
-    }
+const sensSlider = document.getElementById('sensitivity');
+const sensVal = document.getElementById('sensVal');
+const bassLevelSpan = document.getElementById('bassLevel');
+const bassMeterFill = document.getElementById('bassMeterFill');
+const audioStatusBadge = document.getElementById('audioStatusBadge');
+const musicDisc = document.getElementById('musicDisc');
 
+sensSlider.addEventListener('input', () => {
+    sensVal.textContent = sensSlider.value;
+});
+
+document.getElementById('btnSystemAudio').addEventListener('click', async () => {
+    if (!supportsDisplayAudio) return;
     try {
+        stopActiveMode();
         stopCurrentAudio();
-        log('Elige la pestaña con música y activa "Compartir audio de la pestaña"...');
-
         const stream = await navigator.mediaDevices.getDisplayMedia({
             video: true,
-            audio: {
-                echoCancellation: false,
-                noiseSuppression: false,
-                autoGainControl: false
-            }
+            audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
         });
-
-        const audioTracks = stream.getAudioTracks();
-        if (audioTracks.length === 0) {
+        if (stream.getAudioTracks().length === 0) {
             stream.getTracks().forEach(t => t.stop());
-            log('⚠️ No activaste la casilla "Compartir audio". Inténtalo de nuevo.');
+            log('⚠️ Activa la casilla "Compartir audio de la pestaña".');
             return;
         }
-
         stream.getVideoTracks().forEach(t => t.stop());
-        await startAudioProcessing(stream, 'Audio de Pestaña (PC)');
-
-        audioTracks[0].onended = () => {
-            stopCurrentAudio();
-            log('⏹️ Captura de pestaña finalizada.');
-        };
+        await startAudioProcessing(stream, 'AUDIO DE PESTAÑA EN VIVO');
+        stream.getAudioTracks()[0].onended = () => stopCurrentAudio();
     } catch (e) {
-        log(`❌ Captura cancelada: ${e.message}`);
+        log(`❌ Audio cancelado: ${e.message}`);
     }
 });
 
-btnMic.addEventListener('click', async () => {
+document.getElementById('btnMic').addEventListener('click', async () => {
     try {
+        stopActiveMode();
         stopCurrentAudio();
-        log('Solicitando permiso de micrófono...');
-
-        // Desactivar filtros de voz es vital en Android para captar los bajos de la música
         const stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-                echoCancellation: false,
-                noiseSuppression: false,
-                autoGainControl: false
-            }
+            audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
         });
-
-        await startAudioProcessing(stream, isAndroid ? 'Micrófono Android' : 'Micrófono PC');
+        await startAudioProcessing(stream, isAndroid ? 'MICRÓFONO ANDROID EN VIVO' : 'MICRÓFONO PC EN VIVO');
     } catch (e) {
         log(`❌ Error micrófono: ${e.message}`);
     }
 });
 
-btnStopAudio.addEventListener('click', () => {
-    stopCurrentAudio();
-    log('⏹️ Sincronización de audio detenida.');
-});
+document.getElementById('btnStopAudio').addEventListener('click', stopCurrentAudio);
 
 async function startAudioProcessing(stream, label) {
     currentStream = stream;
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     audioContext = new AudioCtx();
-
-    // En Android, AudioContext inicia suspendido hasta que se reanuda en un evento de usuario
-    if (audioContext.state === 'suspended') {
-        await audioContext.resume();
-    }
+    if (audioContext.state === 'suspended') await audioContext.resume();
 
     const source = audioContext.createMediaStreamSource(stream);
     analyser = audioContext.createAnalyser();
     analyser.fftSize = 256;
     analyser.smoothingTimeConstant = 0.55;
-
     source.connect(analyser);
+
     dataArray = new Uint8Array(analyser.frequencyBinCount);
     isSyncing = true;
 
-    statusBadge.textContent = 'EN VIVO';
-    statusBadge.className = 'badge badge-on';
-    btnStopAudio.style.display = 'flex';
+    audioStatusBadge.textContent = label;
+    audioStatusBadge.className = 'badge badge-on';
+    document.getElementById('btnStopAudio').style.display = 'block';
     requestScreenWakeLock();
-
-    log(`🎶 ${label} activo. ¡Reproduce tu música!`);
     analyzeAudio();
 }
 
 function stopCurrentAudio() {
     isSyncing = false;
     if (currentStream) {
-        currentStream.getTracks().forEach(track => track.stop());
+        currentStream.getTracks().forEach(t => t.stop());
         currentStream = null;
     }
     if (audioContext) {
         audioContext.close().catch(() => {});
         audioContext = null;
     }
-    statusBadge.textContent = 'INACTIVO';
-    statusBadge.className = 'badge badge-off';
-    btnStopAudio.style.display = 'none';
-    bassMeterFill.style.width = '0%';
-    bassLevelSpan.textContent = '0';
-}
-
-// ============================================================================
-// REPRODUCTOR YOUTUBE OPCIONAL
-// ============================================================================
-function onYouTubeIframeAPIReady() {}
-
-document.getElementById('loadVideo').addEventListener('click', () => {
-    const urlInput = document.getElementById('ytUrl').value;
-    const videoId = extractVideoId(urlInput);
-
-    if (!videoId) {
-        log('Link de YouTube inválido.');
-        return;
-    }
-
-    document.getElementById('player-container').style.display = 'block';
-
-    if (!player) {
-        player = new YT.Player('youtube-player', {
-            height: '180',
-            width: '100%',
-            videoId: videoId,
-            playerVars: { 'playsinline': 1 },
-            events: {
-                'onReady': (event) => event.target.playVideo()
-            }
-        });
-    } else {
-        player.loadVideoById(videoId);
-    }
-
-    log(isAndroid
-        ? 'Video cargado. Pulsa "Activar Micrófono (Android)" para sincronizar con el altavoz.'
-        : 'Video cargado. Pulsa "Audio de Pestaña (PC)" y elige esta pestaña.');
-});
-
-function extractVideoId(url) {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
-}
-
-// ============================================================================
-// MOTOR VISUAL Y DETECCIÓN DE GRAVES
-// ============================================================================
-const palette = [
-    [255, 0, 85],    // Neón Rosa
-    [0, 210, 255],   // Cian Eléctrico
-    [140, 0, 255],   // Violeta
-    [0, 255, 110],   // Verde Esmeralda
-    [255, 130, 0],   // Naranja Intenso
-    [255, 230, 0],   // Amarillo
-    [255, 20, 20]    // Rojo Puro
-];
-let colorIndex = 0;
-
-function updateVisualGlow(r, g, b) {
-    visualizer.style.boxShadow = `0 0 35px rgba(${r}, ${g}, ${b}, 0.85)`;
-    ambientGlow.style.background = `radial-gradient(circle, rgba(${r}, ${g}, ${b}, 0.22) 0%, rgba(9, 9, 11, 0) 70%)`;
-}
-
-function resetVisualGlow() {
-    visualizer.style.boxShadow = '0 0 25px rgba(0, 0, 0, 0.6)';
-    ambientGlow.style.background = 'radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, rgba(9, 9, 11, 0) 70%)';
-}
-
-function analyzeAudio() {
-    if (!isSyncing || !analyser) return;
-    requestAnimationFrame(analyzeAudio);
-
-    analyser.getByteFrequencyData(dataArray);
-
-    let bassSum = 0;
-    for (let i = 0; i < 8; i++) bassSum += dataArray[i];
-    const bassAvg = Math.round(bassSum / 8);
-
-    bassLevelSpan.textContent = bassAvg;
-    bassMeterFill.style.width = `${Math.min(100, (bassAvg / 255) * 100)}%`;
-
-    const threshold = parseInt(sensSlider.value, 10);
-    const scale = 1 + (bassAvg / 255) * 0.22;
-    visualizer.style.transform = `scale(${scale}) rotate(${Date.now() / 12 % 360}deg)`;
-
-    if (bassAvg >= threshold && isLightsOn) {
-        colorIndex = (colorIndex + 1) % palette.length;
-        const [r, g, b] = palette[colorIndex];
-        updateVisualGlow(r, g, b);
-        sendColorToAll(r, g, b);
-    }
-}
+    audioStatusBadge.textContent = 'MICRÓFONO / AUDIO INACTIVO';
