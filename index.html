@@ -3,131 +3,260 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#09090b">
-    <title>LED Rhythm Studio Pro</title>
+    <meta name="theme-color" content="#0b0c10">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>LED LAMP Pro</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <div class="ambient-glow" id="ambientGlow"></div>
 
-    <main class="studio-container">
-        <header class="studio-header">
-            <div class="header-badges">
-                <span class="logo-badge">RGB SYNC</span>
-                <span id="platformBadge" class="platform-badge">Detectando sistema...</span>
+    <div class="app-shell">
+        <!-- BARRA SUPERIOR (ESTILO LED LAMP) -->
+        <header class="top-bar">
+            <button id="btnDevicesModal" class="device-pill" title="Ver dispositivos conectados">
+                <span class="dot-status" id="connDot"></span>
+                <span id="connCountText">0 Conectadas</span>
+                <span class="chevron">▾</span>
+            </button>
+
+            <div class="app-title">
+                <h1>LED LAMP</h1>
+                <span id="platformTag" class="platform-tag">PC</span>
             </div>
-            <h1>LED Rhythm Studio</h1>
-            <p>Sincronización Bluetooth multi-tira para PC y Android</p>
+
+            <button id="btnMasterPower" class="power-circle is-on" disabled title="Encender / Apagar">
+                ⏻
+            </button>
         </header>
 
         <div id="securityWarning" class="warning-banner" style="display: none;">
-            ⚠️ <strong>Conexión no segura (HTTP):</strong> Web Bluetooth requiere <strong>HTTPS</strong> o <strong>localhost</strong> para funcionar en Android y PC.
+            ⚠️ Web Bluetooth requiere abrir la página en <strong>HTTPS</strong> (GitHub Pages) o <strong>localhost</strong>.
         </div>
 
-        <div class="dashboard-grid">
-            <!-- COLUMNA IZQUIERDA: Visualizador y Controles Bluetooth -->
-            <section class="card visualizer-card">
-                <div class="turntable">
-                    <div id="visualizer" class="vinyl-disc">
-                        <div class="vinyl-grooves"></div>
-                        <div class="vinyl-center">
-                            <div class="spindle"></div>
+        <!-- PANEL DESPLEGABLE DE DISPOSITIVOS -->
+        <div id="devicesDrawer" class="devices-drawer" style="display: none;">
+            <div class="drawer-header">
+                <span>Mis Dispositivos Bluetooth</span>
+                <button id="btnAddDevice" class="btn-small btn-primary">+ Conectar Luz</button>
+            </div>
+            <div id="deviceList" class="device-list">
+                <p class="empty-msg">No hay tiras LED conectadas. Pulsa "+ Conectar Luz".</p>
+            </div>
+            <div class="drawer-footer">
+                <button id="btnDisconnectAll" class="btn-small btn-danger" disabled>Desconectar Todas</button>
+            </div>
+        </div>
+
+        <!-- CONTENIDO PRINCIPAL POR PESTAÑAS -->
+        <main class="tab-content">
+
+            <!-- PESTAÑA 1: COLOR (RUEDA RGB + BRILLO + DIY) -->
+            <section id="tab-color" class="tab-pane active">
+                <div class="wheel-card">
+                    <div class="wheel-wrapper" id="wheelWrapper">
+                        <canvas id="colorWheel" width="250" height="250"></canvas>
+                        <div id="wheelCursor" class="wheel-cursor"></div>
+                        <div id="colorCenterPreview" class="wheel-center-preview">
+                            <span id="rgbReadout">RGB(0, 255, 136)</span>
                         </div>
                     </div>
-                </div>
 
-                <div class="bt-controls">
-                    <button id="btnBluetooth" class="btn btn-primary">
-                        <span>🔗</span> Conectar Luz
-                    </button>
-                    <button id="btnDisconnect" class="btn btn-danger" disabled>
-                        <span>❌</span> Desconectar
-                    </button>
-                </div>
-
-                <div class="secondary-controls">
-                    <button id="btnPower" class="btn btn-secondary" disabled>
-                        <span>⏻</span> Encender / Apagar
-                    </button>
-                    <button id="btnTest" class="btn btn-success" disabled>
-                        <span>🧪</span> Probar Color
-                    </button>
-                    <div class="select-wrapper">
-                        <label for="protocolSelect">Protocolo del Controlador</label>
-                        <select id="protocolSelect">
-                            <option value="ledble">LEDBLE-00 / LED LAMP (9 bytes)</option>
-                            <option value="triones">Triones / LEDBLE (7 bytes)</option>
-                            <option value="elk">ELK-BLEDOM (9 bytes)</option>
-                        </select>
+                    <div class="quick-actions-row">
+                        <button id="btnQuickConnect" class="btn-chip btn-primary-outline">🔗 Conectar Luz</button>
+                        <button id="btnPureWhite" class="btn-chip">⚪ Blanco Puro</button>
                     </div>
+                </div>
+
+                <!-- Control de Brillo -->
+                <div class="control-card">
+                    <div class="slider-row">
+                        <span>☀️ Brillo</span>
+                        <strong id="brightnessVal">100%</strong>
+                    </div>
+                    <input type="range" id="brightnessSlider" min="5" max="100" value="100">
+                </div>
+
+                <!-- Colores Preestablecidos -->
+                <div class="control-card">
+                    <div class="card-subtitle">Colores Rápidos</div>
+                    <div class="swatches-grid" id="presetSwatches">
+                        <button class="swatch" data-rgb="255,0,0" style="background:#ff0000;" title="Rojo"></button>
+                        <button class="swatch" data-rgb="0,255,0" style="background:#00ff00;" title="Verde"></button>
+                        <button class="swatch" data-rgb="0,80,255" style="background:#0050ff;" title="Azul"></button>
+                        <button class="swatch" data-rgb="255,230,0" style="background:#ffe600;" title="Amarillo"></button>
+                        <button class="swatch" data-rgb="0,240,255" style="background:#00f0ff;" title="Cian"></button>
+                        <button class="swatch" data-rgb="210,0,255" style="background:#d200ff;" title="Magenta"></button>
+                        <button class="swatch" data-rgb="255,95,0" style="background:#ff5f00;" title="Naranja"></button>
+                        <button class="swatch" data-rgb="255,255,255" style="background:#ffffff;" title="Blanco"></button>
+                    </div>
+
+                    <div class="card-subtitle" style="margin-top: 14px;">
+                        <span>Favoritos DIY (Toca + para guardar el actual)</span>
+                    </div>
+                    <div class="swatches-grid diy-grid" id="diySwatches"></div>
                 </div>
             </section>
 
-            <!-- COLUMNA DERECHA: Audio, YouTube y Consola -->
-            <section class="card controls-card">
-                
-                <!-- Captura de Audio -->
-                <div class="audio-capture-box">
-                    <div class="section-title">
-                        <span>🎧 Captura de Audio</span>
-                        <span id="statusBadge" class="badge badge-off">INACTIVO</span>
+            <!-- PESTAÑA 2: MODOS / ESCENAS -->
+            <section id="tab-modes" class="tab-pane">
+                <div class="control-card">
+                    <div class="slider-row">
+                        <span>⚡ Velocidad del Efecto</span>
+                        <strong id="speedVal">55%</strong>
                     </div>
-                    <p id="audioHelperText" class="helper-text">
-                        Selecciona una fuente de audio para sincronizar las luces al ritmo de los graves.
+                    <input type="range" id="speedSlider" min="5" max="100" value="55">
+                </div>
+
+                <div class="modes-grid" id="modesGrid">
+                    <button class="mode-item" data-mode="jump3">
+                        <span class="mode-icon">🔴🟢🔵</span>
+                        <span>Salto 3 Colores</span>
+                    </button>
+                    <button class="mode-item" data-mode="jump7">
+                        <span class="mode-icon">🌈</span>
+                        <span>Salto 7 Colores</span>
+                    </button>
+                    <button class="mode-item" data-mode="fade7">
+                        <span class="mode-icon">✨</span>
+                        <span>Degradado Suave</span>
+                    </button>
+                    <button class="mode-item" data-mode="strobe">
+                        <span class="mode-icon">⚡</span>
+                        <span>Estrobo Flash</span>
+                    </button>
+                    <button class="mode-item" data-mode="breath_cyan">
+                        <span class="mode-icon">💠</span>
+                        <span>Pulso Neón Cian</span>
+                    </button>
+                    <button class="mode-item" data-mode="breath_purple">
+                        <span class="mode-icon">🔮</span>
+                        <span>Pulso Violeta</span>
+                    </button>
+                    <button class="mode-item" data-mode="fire">
+                        <span class="mode-icon">🔥</span>
+                        <span>Modo Fuego</span>
+                    </button>
+                    <button class="mode-item" data-mode="ocean">
+                        <span class="mode-icon">🌊</span>
+                        <span>Modo Océano</span>
+                    </button>
+                </div>
+
+                <button id="btnStopMode" class="btn-full btn-secondary" style="display: none;">
+                    ⏹️ Detener Modo y Volver a Color Fijo
+                </button>
+            </section>
+
+            <!-- PESTAÑA 3: MÚSICA (RITMO) -->
+            <section id="tab-music" class="tab-pane">
+                <div class="control-card music-hero">
+                    <div id="musicDisc" class="music-disc">
+                        <span>🎵</span>
+                    </div>
+                    <div class="status-row">
+                        <span id="audioStatusBadge" class="badge badge-off">MICRÓFONO / AUDIO INACTIVO</span>
+                    </div>
+                    <p id="musicHelper" class="helper-text">
+                        Sincroniza tus tiras LED al golpe de los graves de tu música.
                     </p>
-                    <div class="capture-buttons">
-                        <button id="btnSystemAudio" class="btn btn-accent">
-                            <span>🖥️</span> Audio de Pestaña (PC)
+
+                    <div class="music-buttons">
+                        <button id="btnSystemAudio" class="btn-full btn-accent">
+                            🖥️ Audio de Pestaña (PC)
                         </button>
-                        <button id="btnMic" class="btn btn-secondary">
-                            <span>🎙️</span> Usar Micrófono
+                        <button id="btnMic" class="btn-full btn-primary">
+                            🎙️ Activar Micrófono
                         </button>
-                        <button id="btnStopAudio" class="btn btn-danger" style="display: none;">
-                            <span>⏹️</span> Detener Audio
+                        <button id="btnStopAudio" class="btn-full btn-danger" style="display: none;">
+                            ⏹️ Detener Sincronización
                         </button>
                     </div>
                 </div>
 
-                <!-- Medidor y Sensibilidad -->
-                <div class="mixer-panel">
-                    <div class="slider-header">
-                        <label for="sensitivity">Umbral de Graves (Sensibilidad)</label>
-                        <span class="value-pill"><span id="sensVal">85</span> / 200</span>
+                <div class="control-card">
+                    <div class="slider-row">
+                        <span>🎚️ Sensibilidad de Graves</span>
+                        <strong id="sensVal">85</strong>
                     </div>
                     <input type="range" id="sensitivity" min="15" max="200" value="85">
-                    
-                    <div class="meter-bar-container">
-                        <div class="meter-label">Nivel de Graves: <strong id="bassLevel">0</strong></div>
-                        <div class="meter-track">
-                            <div id="bassMeterFill" class="meter-fill"></div>
-                        </div>
+
+                    <div class="meter-row">
+                        <span>Nivel de Graves: <strong id="bassLevel">0</strong></span>
+                    </div>
+                    <div class="meter-track">
+                        <div id="bassMeterFill" class="meter-fill"></div>
                     </div>
                 </div>
 
-                <!-- Reproductor Rápido de YouTube -->
-                <div class="youtube-box">
-                    <label class="section-title">🎵 Reproductor Rápido (Opcional)</label>
-                    <div class="search-row">
-                        <input type="text" id="ytUrl" placeholder="Pega un enlace de YouTube aquí...">
-                        <button id="loadVideo" class="btn btn-yt">Cargar</button>
+                <div class="control-card">
+                    <div class="card-subtitle">Reproductor Rápido YouTube (Opcional)</div>
+                    <div class="yt-row">
+                        <input type="text" id="ytUrl" placeholder="Pega link de YouTube...">
+                        <button id="loadVideo" class="btn-yt">Cargar</button>
                     </div>
-                    <div id="player-container">
+                    <div id="player-container" style="display: none; margin-top: 10px;">
                         <div id="youtube-player"></div>
                     </div>
                 </div>
+            </section>
 
-                <!-- Consola de Eventos -->
-                <div class="console-wrapper">
-                    <div class="console-header">
-                        <span>Registro del Sistema</span>
+            <!-- PESTAÑA 4: TEMPORIZADOR Y AJUSTES -->
+            <section id="tab-timer" class="tab-pane">
+                <div class="control-card timer-card">
+                    <div class="card-subtitle">⏱️ Temporizador de Apagado Automático</div>
+                    <div id="timerDisplay" class="timer-display">00:00:00</div>
+                    <div class="timer-presets">
+                        <button class="btn-chip timer-btn" data-mins="15">15 min</button>
+                        <button class="btn-chip timer-btn" data-mins="30">30 min</button>
+                        <button class="btn-chip timer-btn" data-mins="60">1 hora</button>
+                        <button id="btnCancelTimer" class="btn-chip btn-danger-outline">Cancelar</button>
+                    </div>
+                </div>
+
+                <div class="control-card">
+                    <div class="card-subtitle">⚙️ Protocolo del Controlador</div>
+                    <select id="protocolSelect" class="protocol-select">
+                        <option value="ledble">LEDBLE-00 / LED LAMP (9 bytes - FFE0)</option>
+                        <option value="elk">ELK-BLEDOM / MELK (9 bytes - FFF0)</option>
+                        <option value="triones">Triones / MagicBlue (7 bytes - FFE5/FFD5)</option>
+                    </select>
+                </div>
+
+                <div class="control-card">
+                    <div class="slider-row">
+                        <span class="card-subtitle" style="margin:0;">📋 Registro del Sistema</span>
                         <button id="btnClearLog" class="btn-mini">Limpiar</button>
                     </div>
-                    <div id="log">Listo. Conecta tus tiras LED por Bluetooth para empezar...<br></div>
+                    <div id="log" class="log-box">Listo. Iniciando LED LAMP Pro...<br></div>
                 </div>
             </section>
-        </div>
-    </main>
+
+        </main>
+
+        <!-- BARRA DE NAVEGACIÓN INFERIOR (ESTILO LED LAMP) -->
+        <nav class="bottom-nav">
+            <button class="nav-btn active" data-target="tab-color">
+                <span class="nav-icon">🎨</span>
+                <span>Color</span>
+            </button>
+            <button class="nav-btn" data-target="tab-modes">
+                <span class="nav-icon">✨</span>
+                <span>Modos</span>
+            </button>
+            <button class="nav-btn" data-target="tab-music">
+                <span class="nav-icon">🎵</span>
+                <span>Música</span>
+            </button>
+            <button class="nav-btn" data-target="tab-timer">
+                <span class="nav-icon">⏱️</span>
+                <span>Tiempo</span>
+            </button>
+        </nav>
+    </div>
 
     <script src="https://www.youtube.com/iframe_api"></script>
     <script src="app.js"></script>
