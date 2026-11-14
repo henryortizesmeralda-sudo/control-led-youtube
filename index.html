@@ -56,7 +56,37 @@
             min-height: 100vh;
             display: flex;
             flex-direction: column;
-            padding-bottom: 78px;
+            padding-bottom: 80px;
+        }
+
+        /* NOTIFICACIÓN FLOTANTE (TOAST) */
+        .toast-banner {
+            position: fixed;
+            top: 74px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-12px);
+            background: rgba(24, 27, 36, 0.96);
+            border: 1px solid #3b82f6;
+            color: #fff;
+            padding: 9px 16px;
+            border-radius: 999px;
+            font-size: 0.83rem;
+            font-weight: 600;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+            z-index: 50;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            max-width: 90%;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .toast-banner.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
         }
 
         /* BARRA SUPERIOR */
@@ -70,7 +100,7 @@
             border-bottom: 1px solid var(--border);
             position: sticky;
             top: 0;
-            z-index: 20;
+            z-index: 25;
         }
 
         .device-pill {
@@ -80,7 +110,7 @@
             background: var(--surface-2);
             border: 1px solid var(--border);
             color: var(--text);
-            padding: 7px 12px;
+            padding: 8px 12px;
             border-radius: 999px;
             font-size: 0.82rem;
             font-weight: 600;
@@ -121,13 +151,13 @@
         }
 
         .power-circle {
-            width: 38px;
-            height: 38px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             border: 1px solid var(--border);
             background: var(--surface-2);
             color: #fff;
-            font-size: 1.1rem;
+            font-size: 1.15rem;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -138,11 +168,11 @@
         .power-circle.is-on:not(:disabled) {
             background: var(--success);
             border-color: var(--success);
-            box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+            box-shadow: 0 0 14px rgba(16, 185, 129, 0.55);
         }
 
         .power-circle:disabled {
-            opacity: 0.4;
+            opacity: 0.38;
             cursor: not-allowed;
         }
 
@@ -156,11 +186,12 @@
             color: #fca5a5;
         }
 
-        /* LISTA DE DISPOSITIVOS */
+        /* LISTA DESPLEGABLE DE DISPOSITIVOS */
         .devices-drawer {
             background: var(--surface);
             border-bottom: 1px solid var(--border);
             padding: 14px 16px;
+            z-index: 20;
         }
 
         .drawer-header {
@@ -170,6 +201,12 @@
             margin-bottom: 10px;
             font-size: 0.88rem;
             font-weight: 700;
+            gap: 8px;
+        }
+
+        .drawer-actions {
+            display: flex;
+            gap: 6px;
         }
 
         .device-list {
@@ -187,7 +224,23 @@
             border: 1px solid var(--border);
             padding: 9px 12px;
             border-radius: 10px;
-            font-size: 0.85rem;
+            font-size: 0.84rem;
+        }
+
+        .device-item-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-remove-one {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            border-radius: 6px;
+            padding: 3px 8px;
+            font-size: 0.75rem;
+            cursor: pointer;
         }
 
         .empty-msg {
@@ -199,10 +252,11 @@
 
         .drawer-footer {
             display: flex;
-            justify-content: flex-end;
+            justify-content: space-between;
+            align-items: center;
         }
 
-        /* PESTAÑAS */
+        /* CONTENIDO DE PESTAÑAS */
         .tab-content {
             padding: 14px 16px;
             flex: 1;
@@ -248,15 +302,16 @@
             cursor: crosshair;
             box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
             display: block;
+            touch-action: none;
         }
 
         .wheel-cursor {
             position: absolute;
-            width: 22px;
-            height: 22px;
+            width: 24px;
+            height: 24px;
             border-radius: 50%;
             border: 3px solid #ffffff;
-            box-shadow: 0 0 6px rgba(0, 0, 0, 0.85);
+            box-shadow: 0 0 8px rgba(0, 0, 0, 0.9);
             transform: translate(-50%, -50%);
             top: 50%;
             left: 50%;
@@ -264,16 +319,27 @@
         }
 
         .wheel-center-preview {
-            text-align: center;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--surface-2);
+            padding: 5px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+        }
+
+        .color-dot-preview {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: rgb(0, 255, 136);
+            border: 1px solid rgba(255, 255, 255, 0.5);
         }
 
         #rgbReadout {
             font-family: monospace;
             font-size: 0.82rem;
-            color: var(--muted);
-            background: var(--surface-2);
-            padding: 4px 10px;
-            border-radius: 8px;
+            color: var(--text);
         }
 
         .quick-actions-row {
@@ -284,7 +350,7 @@
 
         .btn-chip {
             flex: 1;
-            padding: 10px 12px;
+            padding: 11px 12px;
             border-radius: 10px;
             border: 1px solid var(--border);
             background: var(--surface-2);
@@ -294,8 +360,12 @@
             cursor: pointer;
         }
 
+        .btn-chip:active {
+            transform: scale(0.97);
+        }
+
         .btn-primary-outline {
-            border-color: rgba(59, 130, 246, 0.55);
+            border-color: rgba(59, 130, 246, 0.6);
             color: #93c5fd;
         }
 
@@ -316,6 +386,7 @@
 
         input[type="range"] {
             width: 100%;
+            height: 26px;
             accent-color: var(--primary);
             cursor: pointer;
         }
@@ -340,7 +411,7 @@
         .swatch {
             aspect-ratio: 1;
             border-radius: 50%;
-            border: 2px solid rgba(255, 255, 255, 0.22);
+            border: 2px solid rgba(255, 255, 255, 0.25);
             cursor: pointer;
             transition: transform 0.12s ease;
         }
@@ -355,7 +426,7 @@
             border: 1px dashed #4b5563;
             background: var(--surface-2);
             color: var(--muted);
-            font-size: 1.1rem;
+            font-size: 1.15rem;
             font-weight: 700;
             cursor: pointer;
             display: flex;
@@ -385,9 +456,13 @@
             cursor: pointer;
         }
 
+        .mode-item:active {
+            transform: scale(0.97);
+        }
+
         .mode-item.active {
             border-color: var(--primary);
-            background: rgba(59, 130, 246, 0.16);
+            background: rgba(59, 130, 246, 0.18);
             box-shadow: 0 0 14px rgba(59, 130, 246, 0.25);
         }
 
@@ -432,13 +507,17 @@
 
         .btn-full {
             width: 100%;
-            padding: 12px;
+            padding: 13px;
             border-radius: 12px;
             border: none;
             color: #fff;
             font-size: 0.92rem;
             font-weight: 600;
             cursor: pointer;
+        }
+
+        .btn-full:active {
+            transform: scale(0.98);
         }
 
         .btn-primary { background: var(--primary); }
@@ -456,12 +535,17 @@
             cursor: pointer;
         }
 
+        .btn-small:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
         .btn-mini {
             background: var(--surface-2);
             color: var(--muted);
             border: 1px solid var(--border);
             border-radius: 6px;
-            padding: 3px 8px;
+            padding: 4px 9px;
             font-size: 0.74rem;
             cursor: pointer;
         }
@@ -506,7 +590,7 @@
             background: var(--bg);
             border: 1px solid var(--border);
             border-radius: 10px;
-            padding: 9px 11px;
+            padding: 10px 11px;
             color: #fff;
             font-size: 0.86rem;
         }
@@ -546,7 +630,7 @@
             color: #fff;
             border: 1px solid var(--border);
             border-radius: 10px;
-            padding: 10px;
+            padding: 11px;
             font-size: 0.88rem;
         }
 
@@ -556,7 +640,7 @@
             border: 1px solid var(--border);
             border-radius: 10px;
             padding: 10px;
-            height: 130px;
+            height: 140px;
             overflow-y: auto;
             font-family: Consolas, monospace;
             font-size: 0.78rem;
@@ -572,8 +656,8 @@
             transform: translateX(-50%);
             width: 100%;
             max-width: 520px;
-            height: 66px;
-            background: rgba(20, 22, 29, 0.96);
+            height: 68px;
+            background: rgba(20, 22, 29, 0.97);
             backdrop-filter: blur(12px);
             border-top: 1px solid var(--border);
             display: grid;
@@ -590,7 +674,7 @@
             align-items: center;
             justify-content: center;
             gap: 3px;
-            font-size: 0.75rem;
+            font-size: 0.76rem;
             font-weight: 600;
             cursor: pointer;
         }
@@ -600,13 +684,14 @@
         }
 
         .nav-icon {
-            font-size: 1.25rem;
+            font-size: 1.3rem;
         }
     </style>
 </head>
 <body>
 
     <div class="ambient-glow" id="ambientGlow"></div>
+    <div id="toastBanner" class="toast-banner"></div>
 
     <div class="app-shell">
         <!-- BARRA SUPERIOR -->
@@ -628,19 +713,23 @@
         </header>
 
         <div id="securityWarning" class="warning-banner" style="display: none;">
-            ⚠️ Web Bluetooth requiere abrir la página en <strong>HTTPS</strong> o <strong>localhost</strong>.
+            ⚠️ Web Bluetooth requiere abrir la página en <strong>HTTPS</strong> (GitHub Pages) o <strong>localhost</strong>.
         </div>
 
         <!-- LISTA DESPLEGABLE DE DISPOSITIVOS -->
         <div id="devicesDrawer" class="devices-drawer" style="display: none;">
             <div class="drawer-header">
                 <span>Mis Dispositivos Bluetooth</span>
-                <button id="btnAddDevice" class="btn-small btn-primary">+ Conectar Luz</button>
+                <div class="drawer-actions">
+                    <button id="btnReconnectSaved" class="btn-small btn-secondary">🔄 Reconectar</button>
+                    <button id="btnAddDevice" class="btn-small btn-primary">+ Conectar</button>
+                </div>
             </div>
             <div id="deviceList" class="device-list">
-                <p class="empty-msg">No hay tiras LED conectadas. Pulsa "+ Conectar Luz".</p>
+                <p class="empty-msg">No hay tiras LED conectadas. Pulsa "+ Conectar".</p>
             </div>
             <div class="drawer-footer">
+                <button id="btnCloseDrawer" class="btn-mini">Cerrar ✕</button>
                 <button id="btnDisconnectAll" class="btn-small btn-danger" disabled>Desconectar Todas</button>
             </div>
         </div>
@@ -657,6 +746,7 @@
                     </div>
 
                     <div class="wheel-center-preview">
+                        <span id="colorDotPreview" class="color-dot-preview"></span>
                         <span id="rgbReadout">RGB(0, 255, 136)</span>
                     </div>
 
@@ -690,7 +780,7 @@
                     </div>
 
                     <div class="card-subtitle" style="margin-top: 14px;">
-                        Favoritos DIY (Toca + para guardar el actual)
+                        Favoritos DIY (Toca + para guardar · Mantén para cambiar)
                     </div>
                     <div class="swatches-grid diy-grid" id="diySwatches"></div>
                 </div>
@@ -853,7 +943,6 @@
         </nav>
     </div>
 
-    <script src="https://www.youtube.com/iframe_api"></script>
     <script>
         const isAndroid = /Android/i.test(navigator.userAgent) ||
                           (navigator.userAgentData && navigator.userAgentData.platform === 'Android') ||
@@ -863,22 +952,24 @@
 
         // Manifiesto PWA para abrir como app nativa en Android
         (function injectPwaManifest() {
-            const manifest = {
-                name: "LED LAMP Pro",
-                short_name: "LED LAMP",
-                start_url: ".",
-                display: "standalone",
-                background_color: "#0b0c10",
-                theme_color: "#0b0c10"
-            };
-            const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
-            const link = document.createElement('link');
-            link.rel = 'manifest';
-            link.href = URL.createObjectURL(blob);
-            document.head.appendChild(link);
+            try {
+                const manifest = {
+                    name: "LED LAMP Pro",
+                    short_name: "LED LAMP",
+                    start_url: ".",
+                    display: "standalone",
+                    background_color: "#0b0c10",
+                    theme_color: "#0b0c10"
+                };
+                const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+                const link = document.createElement('link');
+                link.rel = 'manifest';
+                link.href = URL.createObjectURL(blob);
+                document.head.appendChild(link);
+            } catch (e) {}
         })();
 
-        let connectedLights = [];
+        let connectedLights = []; // { device, char, protocol, queue, processing }
         let isLightsOn = true;
         let isManualDisconnect = false;
         let currentRGB = { r: 0, g: 255, b: 136 };
@@ -896,6 +987,7 @@
         let isSyncing = false;
         let lastSendTime = 0;
         let player = null;
+        let toastTimer = null;
 
         const ALL_LED_SERVICES = [
             '0000ffe0-0000-1000-8000-00805f9b34fb',
@@ -922,6 +1014,16 @@
         const deviceListDiv = document.getElementById('deviceList');
         const connDot = document.getElementById('connDot');
         const connCountText = document.getElementById('connCountText');
+        const toastBanner = document.getElementById('toastBanner');
+
+        function showToast(text) {
+            toastBanner.textContent = text;
+            toastBanner.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                toastBanner.classList.remove('show');
+            }, 2400);
+        }
 
         function log(msg) {
             logDiv.innerHTML += `> ${msg}<br>`;
@@ -942,6 +1044,10 @@
             devicesDrawer.style.display = devicesDrawer.style.display === 'none' ? 'block' : 'none';
         });
 
+        document.getElementById('btnCloseDrawer').addEventListener('click', () => {
+            devicesDrawer.style.display = 'none';
+        });
+
         // Configuración por plataforma
         function initPlatform() {
             if (!window.isSecureContext) {
@@ -951,6 +1057,7 @@
             if (isAndroid) {
                 platformTag.textContent = 'ANDROID';
                 document.getElementById('btnSystemAudio').style.display = 'none';
+                document.getElementById('btnMic').innerHTML = '🎙️ Activar Micrófono (Android)';
                 document.getElementById('musicHelper').textContent = 'Activa el micrófono y mantén Ubicación (GPS) y Bluetooth encendidos.';
             } else {
                 platformTag.textContent = 'PC';
@@ -973,7 +1080,7 @@
             }
         }
 
-        // Cola GATT serializada
+        // Cola GATT serializada (55 ms para evitar saturación en chips FFE0 / Android)
         function enqueueWrite(light, bytes, isPriority = false) {
             if (!light || !light.device.gatt.connected) return Promise.resolve();
             if (!isPriority && light.queue.length > 1) return Promise.resolve();
@@ -1003,25 +1110,28 @@
                         if (light.device.gatt.connected) await light.char.writeValue(bytes);
                     } catch (e) {}
                 }
-                await sleep(isAndroid ? 45 : 35);
+                await sleep(55);
                 resolve();
             }
 
             light.processing = false;
         }
 
-        async function sendToAllLights(bytes, isPriority = false) {
-            await Promise.all(connectedLights.map(light => enqueueWrite(light, bytes, isPriority)));
-        }
-
         // Auto-conexión al abrir
-        async function autoConnectSavedLights() {
-            if (!navigator.bluetooth || typeof navigator.bluetooth.getDevices !== 'function') return;
+        async function autoConnectSavedLights(manualTrigger = false) {
+            if (!navigator.bluetooth || typeof navigator.bluetooth.getDevices !== 'function') {
+                if (manualTrigger) showToast('⚠️ Pulsa "+ Conectar" para elegir tus luces');
+                return;
+            }
             try {
                 const saved = await navigator.bluetooth.getDevices();
-                if (!saved || saved.length === 0) return;
+                if (!saved || saved.length === 0) {
+                    if (manualTrigger) showToast('ℹ️ No hay luces guardadas aún');
+                    return;
+                }
 
-                log(`🔄 Reconectando ${saved.length} tira(s) guardada(s)...`);
+                log(`🔄 Conectando ${saved.length} tira(s) guardada(s)...`);
+                if (manualTrigger) showToast(`🔄 Buscando ${saved.length} luz/luces guardadas...`);
                 isManualDisconnect = false;
 
                 for (const device of saved) {
@@ -1085,7 +1195,10 @@
                 device.removeEventListener('gattserverdisconnected', handleDeviceDisconnected);
                 device.addEventListener('gattserverdisconnected', handleDeviceDisconnected);
 
-                if (!isAuto) log(`Enlazando con ${device.name || 'LED'}...`);
+                if (!isAuto) {
+                    log(`Enlazando con ${device.name || 'LED'}...`);
+                    showToast(`🔗 Enlazando con ${device.name || 'LED'}...`);
+                }
 
                 let server = await connectGattWithRetry(device, isAuto ? 2 : 3, isAuto);
                 await sleep(isAndroid ? 250 : 150);
@@ -1136,31 +1249,44 @@
                 }
 
                 if (foundChar) {
-                    if (foundSvc === 'ffe0') protocolSelect.value = 'ledble';
-                    else if (foundSvc === 'fff0') protocolSelect.value = 'elk';
-                    else if (['ffe5', 'ffd5', 'ffd0'].includes(foundSvc)) protocolSelect.value = 'triones';
+                    let detectedProto = protocolSelect.value;
+                    if (foundSvc === 'ffe0') detectedProto = 'ledble';
+                    else if (foundSvc === 'fff0') detectedProto = 'elk';
+                    else if (['ffe5', 'ffd5', 'ffd0'].includes(foundSvc)) detectedProto = 'triones';
 
-                    const lightObj = { device, char: foundChar, queue: [], processing: false };
+                    protocolSelect.value = detectedProto;
+
+                    const lightObj = {
+                        device,
+                        char: foundChar,
+                        protocol: detectedProto,
+                        queue: [],
+                        processing: false
+                    };
                     connectedLights.push(lightObj);
                     isLightsOn = true;
 
                     log(`🎉 Conectada: ${device.name || 'LED'} [${foundSvc}→${foundChar.uuid.slice(4, 8)}]`);
+                    showToast(`✅ ${device.name || 'Luz LED'} conectada`);
                     refreshDevicesUI();
                     requestScreenWakeLock();
 
-                    if (protocolSelect.value === 'ledble') {
+                    // Handshake obligatorio en chips FFE0 (LEDBLE-00 / LED LAMP)
+                    if (detectedProto === 'ledble') {
                         await enqueueWrite(lightObj, new Uint8Array([0x2a, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]), true);
                     }
 
-                    await sendPowerCommand(true);
+                    await sendPowerToLight(lightObj, true);
                     await applyCurrentColor(true);
                 } else if (!isAuto) {
-                    log(`❌ No se encontró canal de escritura en ${device.name || 'LED'}.`);
+                    log(`❌ Sin canal de escritura en ${device.name || 'LED'}.`);
+                    showToast('❌ Dispositivo no compatible');
                     if (device.gatt.connected) device.gatt.disconnect();
                 }
             } catch (error) {
                 if (!isAuto && error.name !== 'NotFoundError') {
                     log(`❌ Error: ${error.message}`);
+                    showToast('❌ Error de conexión Bluetooth');
                 }
             }
         }
@@ -1168,7 +1294,8 @@
         async function promptConnectDevice() {
             try {
                 if (!navigator.bluetooth) {
-                    log('❌ Usa Google Chrome en HTTPS o localhost.');
+                    showToast('❌ Usa Google Chrome en HTTPS');
+                    log('❌ Web Bluetooth no disponible. Abre en Google Chrome con HTTPS.');
                     return;
                 }
                 isManualDisconnect = false;
@@ -1178,11 +1305,427 @@
                 });
                 await connectSingleDevice(device, false);
             } catch (e) {
-                if (e.name !== 'NotFoundError') log(`❌ ${e.message}`);
+                if (e.name !== 'NotFoundError') {
+                    log(`❌ ${e.message}`);
+                    showToast('⚠️ Activa Bluetooth y Ubicación (GPS)');
+                }
             }
         }
 
         document.getElementById('btnAddDevice').addEventListener('click', promptConnectDevice);
         document.getElementById('btnQuickConnect').addEventListener('click', promptConnectDevice);
+        document.getElementById('btnReconnectSaved').addEventListener('click', () => autoConnectSavedLights(true));
+
+        protocolSelect.addEventListener('change', async () => {
+            const newProto = protocolSelect.value;
+            connectedLights.forEach(l => l.protocol = newProto);
+            showToast(`⚙️ Protocolo: ${newProto.toUpperCase()}`);
+            if (connectedLights.length > 0 && isLightsOn) {
+                await sendPowerCommand(true);
+                await applyCurrentColor(true);
+            }
+        });
+
+        function disconnectOneLight(deviceId) {
+            const idx = connectedLights.findIndex(item => item.device.id === deviceId);
+            if (idx === -1) return;
+            const [removed] = connectedLights.splice(idx, 1);
+            removed.device.removeEventListener('gattserverdisconnected', handleDeviceDisconnected);
+            if (removed.device.gatt.connected) removed.device.gatt.disconnect();
+            refreshDevicesUI();
+            if (connectedLights.length === 0) {
+                stopActiveMode();
+                releaseScreenWakeLock();
+            }
+            showToast(`🔌 ${removed.device.name || 'Luz'} desconectada`);
+        }
 
         document.getElementById('btnDisconnectAll').addEventListener('click', () => {
+            isManualDisconnect = true;
+            stopActiveMode();
+            connectedLights.forEach(({ device }) => {
+                if (device && device.gatt.connected) device.gatt.disconnect();
+            });
+            connectedLights = [];
+            refreshDevicesUI();
+            releaseScreenWakeLock();
+            showToast('🔌 Todas las luces desconectadas');
+            log('🔌 Todas las luces desconectadas.');
+        });
+
+        function handleDeviceDisconnected(event) {
+            const dev = event.target;
+            const prev = connectedLights.length;
+            connectedLights = connectedLights.filter(item => item.device.id !== dev.id);
+
+            if (connectedLights.length < prev) {
+                refreshDevicesUI();
+                log(`🔌 Desconectada: ${dev.name || 'LED'}`);
+
+                if (!isManualDisconnect) {
+                    setTimeout(() => {
+                        if (!isManualDisconnect) connectSingleDevice(dev, true);
+                    }, 2000);
+                }
+            }
+        }
+
+        function refreshDevicesUI() {
+            const count = connectedLights.length;
+            connCountText.textContent = `${count} Conectada${count === 1 ? '' : 's'}`;
+            connDot.className = count > 0 ? 'dot-status connected' : 'dot-status';
+            btnMasterPower.disabled = count === 0;
+            document.getElementById('btnDisconnectAll').disabled = count === 0;
+            document.getElementById('btnQuickConnect').textContent = count > 0
+                ? `🔗 Conectar Otra (${count})`
+                : `🔗 Conectar Luz`;
+
+            updatePowerButtonUI();
+
+            if (count === 0) {
+                deviceListDiv.innerHTML = `<p class="empty-msg">No hay tiras LED conectadas. Pulsa "+ Conectar".</p>`;
+                return;
+            }
+
+            deviceListDiv.innerHTML = connectedLights.map(({ device }, idx) => `
+                <div class="device-item">
+                    <span>💡 <strong>${device.name || 'Tira LED #' + (idx + 1)}</strong></span>
+                    <div class="device-item-right">
+                        <span style="color:#34d399; font-size:0.76rem;">● En línea</span>
+                        <button class="btn-remove-one" data-id="${device.id}">✕</button>
+                    </div>
+                </div>
+            `).join('');
+
+            deviceListDiv.querySelectorAll('.btn-remove-one').forEach(btn => {
+                btn.addEventListener('click', () => disconnectOneLight(btn.dataset.id));
+            });
+        }
+
+        // Encendido / Apagado
+        btnMasterPower.addEventListener('click', async () => {
+            if (connectedLights.length === 0) return;
+            isLightsOn = !isLightsOn;
+            updatePowerButtonUI();
+            await sendPowerCommand(isLightsOn);
+
+            if (isLightsOn) {
+                log('💡 Luces ENCENDIDAS.');
+                showToast('💡 Luces ENCENDIDAS');
+                await applyCurrentColor(true);
+            } else {
+                stopActiveMode();
+                log('🌑 Luces APAGADAS.');
+                showToast('🌑 Luces APAGADAS');
+                ambientGlow.style.background = 'none';
+            }
+        });
+
+        function updatePowerButtonUI() {
+            if (isLightsOn && connectedLights.length > 0) {
+                btnMasterPower.classList.add('is-on');
+            } else {
+                btnMasterPower.classList.remove('is-on');
+            }
+        }
+
+        async function sendPowerToLight(light, turnOn) {
+            const proto = light.protocol || protocolSelect.value;
+            if (proto === 'ledble') {
+                const cmd1 = turnOn
+                    ? new Uint8Array([0x7e, 0xff, 0x04, 0x01, 0xff, 0xff, 0xff, 0xff, 0xef])
+                    : new Uint8Array([0x7e, 0xff, 0x04, 0x00, 0xff, 0xff, 0xff, 0xff, 0xef]);
+                const cmd2 = turnOn
+                    ? new Uint8Array([0x7e, 0x00, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0xef])
+                    : new Uint8Array([0x7e, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0xef]);
+                await enqueueWrite(light, cmd1, true);
+                await enqueueWrite(light, cmd2, true);
+            } else if (proto === 'elk') {
+                const cmd = turnOn
+                    ? new Uint8Array([0x7e, 0x00, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef])
+                    : new Uint8Array([0x7e, 0x00, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef]);
+                await enqueueWrite(light, cmd, true);
+            } else {
+                const cmd = turnOn
+                    ? new Uint8Array([0xcc, 0x23, 0x33])
+                    : new Uint8Array([0xcc, 0x24, 0x33]);
+                await enqueueWrite(light, cmd, true);
+            }
+        }
+
+        async function sendPowerCommand(turnOn) {
+            await Promise.all(connectedLights.map(l => sendPowerToLight(l, turnOn)));
+        }
+
+        // Rueda RGB
+        const wheelCanvas = document.getElementById('colorWheel');
+        const wheelCtx = wheelCanvas.getContext('2d');
+        const wheelCursor = document.getElementById('wheelCursor');
+        const rgbReadout = document.getElementById('rgbReadout');
+        const colorDotPreview = document.getElementById('colorDotPreview');
+        const brightnessSlider = document.getElementById('brightnessSlider');
+        const brightnessVal = document.getElementById('brightnessVal');
+
+        function drawColorWheel() {
+            const size = wheelCanvas.width;
+            const radius = size / 2;
+            const img = wheelCtx.createImageData(size, size);
+            const data = img.data;
+
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    const dx = x - radius;
+                    const dy = y - radius;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const idx = (y * size + x) * 4;
+
+                    if (dist <= radius) {
+                        const angle = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+                        const sat = dist / radius;
+                        const { r, g, b } = hsvToRgb(angle, sat, 1);
+                        data[idx] = r;
+                        data[idx + 1] = g;
+                        data[idx + 2] = b;
+                        data[idx + 3] = 255;
+                    } else {
+                        data[idx + 3] = 0;
+                    }
+                }
+            }
+            wheelCtx.putImageData(img, 0, 0);
+        }
+
+        function hsvToRgb(h, s, v) {
+            const c = v * s;
+            const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+            const m = v - c;
+            let r = 0, g = 0, b = 0;
+
+            if (h < 60) { r = c; g = x; }
+            else if (h < 120) { r = x; g = c; }
+            else if (h < 180) { g = c; b = x; }
+            else if (h < 240) { g = x; b = c; }
+            else if (h < 300) { r = x; b = c; }
+            else { r = c; b = x; }
+
+            return {
+                r: Math.round((r + m) * 255),
+                g: Math.round((g + m) * 255),
+                b: Math.round((b + m) * 255)
+            };
+        }
+
+        let isDraggingWheel = false;
+
+        function handleWheelCoords(clientX, clientY) {
+            const rect = wheelCanvas.getBoundingClientRect();
+            const radius = rect.width / 2;
+            let dx = clientX - (rect.left + radius);
+            let dy = clientY - (rect.top + radius);
+            let dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist > radius) {
+                dx = (dx / dist) * radius;
+                dy = (dy / dist) * radius;
+                dist = radius;
+            }
+
+            wheelCursor.style.left = `${radius + dx}px`;
+            wheelCursor.style.top = `${radius + dy}px`;
+
+            const angle = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+            const sat = dist / radius;
+            currentRGB = hsvToRgb(angle, sat, 1);
+
+            stopActiveMode();
+            applyCurrentColor(false);
+        }
+
+        wheelCanvas.addEventListener('pointerdown', (e) => {
+            isDraggingWheel = true;
+            if (wheelCanvas.setPointerCapture) wheelCanvas.setPointerCapture(e.pointerId);
+            handleWheelCoords(e.clientX, e.clientY);
+        });
+
+        wheelCanvas.addEventListener('pointermove', (e) => {
+            if (isDraggingWheel) handleWheelCoords(e.clientX, e.clientY);
+        });
+
+        wheelCanvas.addEventListener('pointerup', () => {
+            if (!isDraggingWheel) return;
+            isDraggingWheel = false;
+            applyCurrentColor(true);
+        });
+
+        brightnessSlider.addEventListener('input', () => {
+            currentBrightness = parseInt(brightnessSlider.value, 10);
+            brightnessVal.textContent = `${currentBrightness}%`;
+            applyCurrentColor(false);
+        });
+
+        brightnessSlider.addEventListener('change', () => {
+            applyCurrentColor(true);
+        });
+
+        document.getElementById('btnPureWhite').addEventListener('click', () => {
+            stopActiveMode();
+            currentRGB = { r: 255, g: 255, b: 255 };
+            wheelCursor.style.left = '50%';
+            wheelCursor.style.top = '50%';
+            applyCurrentColor(true);
+            showToast('⚪ Blanco puro aplicado');
+        });
+
+        document.querySelectorAll('#presetSwatches .swatch').forEach(btn => {
+            btn.addEventListener('click', () => {
+                stopActiveMode();
+                const [r, g, b] = btn.dataset.rgb.split(',').map(Number);
+                currentRGB = { r, g, b };
+                applyCurrentColor(true);
+            });
+        });
+
+        function renderDiySwatches() {
+            const container = document.getElementById('diySwatches');
+            const savedDiy = JSON.parse(localStorage.getItem('ledlamp_diy') || '[null,null,null,null,null,null]');
+
+            container.innerHTML = savedDiy.map((rgb, idx) => {
+                if (rgb) {
+                    return `<button class="swatch" data-diy="${idx}" style="background:rgb(${rgb.r},${rgb.g},${rgb.b});"></button>`;
+                }
+                return `<button class="diy-slot" data-diy="${idx}">+</button>`;
+            }).join('');
+
+            container.querySelectorAll('button').forEach(btn => {
+                const idx = parseInt(btn.dataset.diy, 10);
+                let holdTimer = null;
+                let wasHeld = false;
+
+                btn.addEventListener('pointerdown', () => {
+                    wasHeld = false;
+                    holdTimer = setTimeout(() => {
+                        wasHeld = true;
+                        const list = JSON.parse(localStorage.getItem('ledlamp_diy') || '[null,null,null,null,null,null]');
+                        list[idx] = { ...currentRGB };
+                        localStorage.setItem('ledlamp_diy', JSON.stringify(list));
+                        if (navigator.vibrate) navigator.vibrate(30);
+                        renderDiySwatches();
+                        showToast(`⭐ Favorito #${idx + 1} sobrescrito`);
+                    }, 600);
+                });
+
+                btn.addEventListener('pointerup', () => clearTimeout(holdTimer));
+                btn.addEventListener('pointercancel', () => clearTimeout(holdTimer));
+
+                btn.addEventListener('click', () => {
+                    if (wasHeld) return;
+                    const list = JSON.parse(localStorage.getItem('ledlamp_diy') || '[null,null,null,null,null,null]');
+                    if (!list[idx]) {
+                        list[idx] = { ...currentRGB };
+                        localStorage.setItem('ledlamp_diy', JSON.stringify(list));
+                        renderDiySwatches();
+                        showToast(`⭐ Guardado en Favorito #${idx + 1}`);
+                    } else {
+                        stopActiveMode();
+                        currentRGB = { ...list[idx] };
+                        applyCurrentColor(true);
+                    }
+                });
+            });
+        }
+
+        async function applyCurrentColor(force = false) {
+            const { r, g, b } = currentRGB;
+            rgbReadout.textContent = `RGB(${r}, ${g}, ${b})`;
+            colorDotPreview.style.background = `rgb(${r}, ${g}, ${b})`;
+            ambientGlow.style.background = `radial-gradient(circle at 50% 25%, rgba(${r}, ${g}, ${b}, 0.24), transparent 65%)`;
+
+            const factor = currentBrightness / 100;
+            await sendRawColor(Math.round(r * factor), Math.round(g * factor), Math.round(b * factor), force);
+        }
+
+        async function sendRawColor(r, g, b, force = false) {
+            if (connectedLights.length === 0 || !isLightsOn) return;
+
+            const now = Date.now();
+            const minGap = isAndroid ? 75 : 60;
+            if (!force && now - lastSendTime < minGap) return;
+            lastSendTime = now;
+
+            await Promise.all(connectedLights.map(light => {
+                const proto = light.protocol || protocolSelect.value;
+                let cmd;
+                if (proto === 'ledble') {
+                    cmd = new Uint8Array([0x7e, 0xff, 0x05, 0x03, r, g, b, 0xff, 0xef]);
+                } else if (proto === 'elk') {
+                    cmd = new Uint8Array([0x7e, 0x00, 0x05, 0x03, r, g, b, 0x00, 0xef]);
+                } else {
+                    cmd = new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]);
+                }
+                return enqueueWrite(light, cmd, force);
+            }));
+        }
+
+        // Modos dinámicos
+        const speedSlider = document.getElementById('speedSlider');
+        const speedVal = document.getElementById('speedVal');
+        const btnStopMode = document.getElementById('btnStopMode');
+
+        speedSlider.addEventListener('input', () => {
+            speedVal.textContent = `${speedSlider.value}%`;
+            if (activeModeName) startDynamicMode(activeModeName, true);
+        });
+
+        document.querySelectorAll('.mode-item').forEach(btn => {
+            btn.addEventListener('click', () => startDynamicMode(btn.dataset.mode, false));
+        });
+
+        btnStopMode.addEventListener('click', () => {
+            stopActiveMode();
+            applyCurrentColor(true);
+            showToast('⏹️ Modo detenido');
+        });
+
+        function stopActiveMode() {
+            if (activeModeInterval) {
+                clearInterval(activeModeInterval);
+                activeModeInterval = null;
+            }
+            activeModeName = null;
+            btnStopMode.style.display = 'none';
+            document.querySelectorAll('.mode-item').forEach(b => b.classList.remove('active'));
+        }
+
+        function startDynamicMode(mode, silent = false) {
+            stopActiveMode();
+            stopCurrentAudio();
+
+            activeModeName = mode;
+            btnStopMode.style.display = 'block';
+            const btnEl = document.querySelector(`.mode-item[data-mode="${mode}"]`);
+            if (btnEl) {
+                btnEl.classList.add('active');
+                if (!silent) showToast(`✨ Modo: ${btnEl.innerText.trim()}`);
+            }
+
+            if (connectedLights.length === 0 && !silent) {
+                showToast('⚠️ Conecta tus luces para ver el efecto en vivo');
+            }
+
+            const speedPct = parseInt(speedSlider.value, 10);
+            const intervalMs = Math.max(90, Math.round(950 - (speedPct * 8.5)));
+            let step = 0;
+
+            const colors3 = [[255, 0, 0], [0, 255, 0], [0, 80, 255]];
+            const colors7 = [[255, 0, 0], [255, 120, 0], [255, 240, 0], [0, 255, 0], [0, 220, 255], [0, 60, 255], [180, 0, 255]];
+
+            activeModeInterval = setInterval(() => {
+                const factor = currentBrightness / 100;
+                let r = 0, g = 0, b = 0;
+
+                if (mode === 'jump3') [r, g, b] = colors3[step % colors3.length];
+                else if (mode === 'jump7') [r, g, b] = colors7[step % colors7.length];
+                else if (mode === 'fade7') ({ r, g, b } = hsvToRgb((step * 12) % 360, 1, 1));
+                else if (mode === 'strobe') { const on = step % 2 === 0; r = g = b = on ? 255 : 0; }
+                else if (mode === 'breath_cyan') { const w = (Math.sin(step * 0.35) + 1) / 2; r = 0; g = Math.round(230 * w); b = Math.round(255 * w); }
+                else if (mode === 'breath_purple') { const w = (Math.sin(step * 0
