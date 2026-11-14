@@ -2,149 +2,133 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LED YouTube Sync Mobile</title>
-    <style>
-        body {
-            font-family: system-ui, sans-serif;
-            background: #121212;
-            color: #ffffff;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-            gap: 15px;
-        }
-        h2 { margin: 5px 0; font-size: 20px; text-align: center; }
-        .controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 400px; }
-        button, select, input[type="text"] {
-            padding: 12px 15px;
-            font-size: 14px;
-            border: none;
-            border-radius: 8px;
-            font-weight: bold;
-        }
-        button { background: #2563eb; color: white; cursor: pointer; flex: 1; min-width: 110px; }
-        button:hover:not(:disabled) { background: #1d4ed8; }
-        button:disabled { opacity: 0.4; cursor: not-allowed; }
-        .btn-test { background: #10b981; }
-        .btn-test:hover:not(:disabled) { background: #059669; }
-        .btn-disconnect { background: #ef4444; }
-        .btn-disconnect:hover:not(:disabled) { background: #dc2626; }
-        select { background: #333; color: white; border: 1px solid #555; }
-        
-        /* Vinilo animado */
-        #visualizer {
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            background: radial-gradient(circle, #333 30%, #111 31%, #111 70%, #000 71%);
-            border: 5px solid #222;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: transform 0.05s ease;
-            margin: 5px 0;
-        }
-        .vinyl-center { width: 35px; height: 35px; background: #e11d48; border-radius: 50%; border: 2px solid #fff; }
-
-        .panel {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            background: #1e1e1e;
-            padding: 12px 15px;
-            border-radius: 8px;
-            width: 100%;
-            max-width: 350px;
-            gap: 8px;
-        }
-        input[type="range"] { width: 100%; }
-        
-        /* Buscador de YouTube */
-        .youtube-box {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            width: 100%;
-            max-width: 350px;
-            background: #1e1e1e;
-            padding: 12px;
-            border-radius: 8px;
-        }
-        .youtube-box input {
-            background: #2a2a2a;
-            color: white;
-            border: 1px solid #444;
-            flex: 2;
-        }
-        .search-row { display: flex; gap: 8px; }
-        .search-row button { background: #dc2626; min-width: auto; flex: 1; }
-        
-        #player-container { width: 100%; height: 160px; border-radius: 6px; overflow: hidden; background: #000; display: none; }
-        
-        #log {
-            font-family: monospace;
-            background: #1e1e1e;
-            padding: 10px;
-            border-radius: 8px;
-            width: 100%;
-            max-width: 350px;
-            height: 80px;
-            overflow-y: auto;
-            font-size: 11px;
-            color: #10b981;
-        }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#09090b">
+    <title>LED Rhythm Studio Pro</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <h2>Control LED Rítmico</h2>
-    
-    <div id="visualizer">
-        <div class="vinyl-center"></div>
-    </div>
+    <div class="ambient-glow" id="ambientGlow"></div>
 
-    <div class="controls">
-        <button id="btnBluetooth">🔗 Conectar Luz</button>
-        <button id="btnDisconnect" class="btn-disconnect" disabled>❌ Desconectar</button>
-        <button id="btnMic" style="background: #8b5cf6;">🎙️ Activar Ritmo</button>
-        <button id="btnTest" class="btn-test" disabled>🧪 Probar Color</button>
-    </div>
+    <main class="studio-container">
+        <header class="studio-header">
+            <div class="header-badges">
+                <span class="logo-badge">RGB SYNC</span>
+                <span id="platformBadge" class="platform-badge">Detectando sistema...</span>
+            </div>
+            <h1>LED Rhythm Studio</h1>
+            <p>Sincronización Bluetooth multi-tira para PC y Android</p>
+        </header>
 
-    <div class="controls">
-        <label>Protocolo: 
-            <select id="protocolSelect">
-                <option value="elk">ELK-BLEDOM (9 bytes)</option>
-                <option value="triones">Triones / HappyLighting (7 bytes)</option>
-            </select>
-        </label>
-    </div>
-
-    <!-- Buscador y Reproductor de YouTube Integrado -->
-    <div class="youtube-box">
-        <label style="font-size: 13px; font-weight: bold;">🎵 Reproductor de YouTube:</label>
-        <div class="search-row">
-            <input type="text" id="ytUrl" placeholder="Pega el Link de YouTube aquí...">
-            <button id="loadVideo">Cargar</button>
+        <div id="securityWarning" class="warning-banner" style="display: none;">
+            ⚠️ <strong>Conexión no segura (HTTP):</strong> Web Bluetooth requiere <strong>HTTPS</strong> o <strong>localhost</strong> para funcionar en Android y PC.
         </div>
-        <div id="player-container">
-            <div id="youtube-player"></div>
+
+        <div class="dashboard-grid">
+            <!-- COLUMNA IZQUIERDA: Visualizador y Controles Bluetooth -->
+            <section class="card visualizer-card">
+                <div class="turntable">
+                    <div id="visualizer" class="vinyl-disc">
+                        <div class="vinyl-grooves"></div>
+                        <div class="vinyl-center">
+                            <div class="spindle"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bt-controls">
+                    <button id="btnBluetooth" class="btn btn-primary">
+                        <span>🔗</span> Conectar Luz
+                    </button>
+                    <button id="btnDisconnect" class="btn btn-danger" disabled>
+                        <span>❌</span> Desconectar
+                    </button>
+                </div>
+
+                <div class="secondary-controls">
+                    <button id="btnPower" class="btn btn-secondary" disabled>
+                        <span>⏻</span> Encender / Apagar
+                    </button>
+                    <button id="btnTest" class="btn btn-success" disabled>
+                        <span>🧪</span> Probar Color
+                    </button>
+                    <div class="select-wrapper">
+                        <label for="protocolSelect">Protocolo del Controlador</label>
+                        <select id="protocolSelect">
+                            <option value="ledble">LEDBLE-00 / LED LAMP (9 bytes)</option>
+                            <option value="triones">Triones / LEDBLE (7 bytes)</option>
+                            <option value="elk">ELK-BLEDOM (9 bytes)</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
+
+            <!-- COLUMNA DERECHA: Audio, YouTube y Consola -->
+            <section class="card controls-card">
+                
+                <!-- Captura de Audio -->
+                <div class="audio-capture-box">
+                    <div class="section-title">
+                        <span>🎧 Captura de Audio</span>
+                        <span id="statusBadge" class="badge badge-off">INACTIVO</span>
+                    </div>
+                    <p id="audioHelperText" class="helper-text">
+                        Selecciona una fuente de audio para sincronizar las luces al ritmo de los graves.
+                    </p>
+                    <div class="capture-buttons">
+                        <button id="btnSystemAudio" class="btn btn-accent">
+                            <span>🖥️</span> Audio de Pestaña (PC)
+                        </button>
+                        <button id="btnMic" class="btn btn-secondary">
+                            <span>🎙️</span> Usar Micrófono
+                        </button>
+                        <button id="btnStopAudio" class="btn btn-danger" style="display: none;">
+                            <span>⏹️</span> Detener Audio
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Medidor y Sensibilidad -->
+                <div class="mixer-panel">
+                    <div class="slider-header">
+                        <label for="sensitivity">Umbral de Graves (Sensibilidad)</label>
+                        <span class="value-pill"><span id="sensVal">85</span> / 200</span>
+                    </div>
+                    <input type="range" id="sensitivity" min="15" max="200" value="85">
+                    
+                    <div class="meter-bar-container">
+                        <div class="meter-label">Nivel de Graves: <strong id="bassLevel">0</strong></div>
+                        <div class="meter-track">
+                            <div id="bassMeterFill" class="meter-fill"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reproductor Rápido de YouTube -->
+                <div class="youtube-box">
+                    <label class="section-title">🎵 Reproductor Rápido (Opcional)</label>
+                    <div class="search-row">
+                        <input type="text" id="ytUrl" placeholder="Pega un enlace de YouTube aquí...">
+                        <button id="loadVideo" class="btn btn-yt">Cargar</button>
+                    </div>
+                    <div id="player-container">
+                        <div id="youtube-player"></div>
+                    </div>
+                </div>
+
+                <!-- Consola de Eventos -->
+                <div class="console-wrapper">
+                    <div class="console-header">
+                        <span>Registro del Sistema</span>
+                        <button id="btnClearLog" class="btn-mini">Limpiar</button>
+                    </div>
+                    <div id="log">Listo. Conecta tus tiras LED por Bluetooth para empezar...<br></div>
+                </div>
+            </section>
         </div>
-    </div>
+    </main>
 
-    <div class="panel">
-        <label style="font-size: 12px;">Sensibilidad al ritmo: <span id="sensVal">45</span></label>
-        <input type="range" id="sensitivity" min="20" max="200" value="45">
-        <small style="color: #aaa; font-size: 11px;">Graves: <span id="bassLevel">0</span></small>
-    </div>
-
-    <div id="log">Conecta tus luces para empezar...<br></div>
-
-    <!-- API de YouTube IFrame -->
     <script src="https://www.youtube.com/iframe_api"></script>
     <script src="app.js"></script>
 </body>
